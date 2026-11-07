@@ -11,7 +11,7 @@ NSSM 是一个将任意可执行程序作为 Windows 服务运行并进行管理
 ### 版本说明
 本仓库基于 NSSM 原作（作者 Iain Patterson，上游网站：[nssm.cc](https://nssm.cc/)），遵循 Public Domain 许可。
 在原版基础上主要进行了以下维护与增强：
-- 版本信息为 `3.0.1`（`version.h`）。
+- 版本信息为 `3.0.2`（`version.h`）。
 - 最低系统基线明确为 Windows 7（`_WIN32_WINNT=0x0601`）。
 - 清理并修复多处稳定性问题（句柄泄漏、内存释放一致性、边界/指针判断、注册表类型校验等）。
 - 服务类型与现代 Windows 行为对齐：不再使用交互式服务类型，统一按 `SERVICE_WIN32_OWN_PROCESS` 处理。
@@ -23,25 +23,43 @@ NSSM 是一个将任意可执行程序作为 Windows 服务运行并进行管理
 
 ## 构建方式
 ### 1) GitHub Actions（推荐，手动或版本标签触发）
-仓库已提供工作流：`.github/workflows/build.yml`。默认同时构建 32 位和 64 位 Release 版本，并收集产物到 GitHub Artifacts。
+工作流位于 `.github/workflows/build.yml`：先验证发布配置，再并行构建 Win32/Win64；两个架构都成功后，版本标签运行会自动发布 GitHub Release。
 
 触发方式：
-- **手动运行**：推送代码后，在 GitHub 仓库的 “Actions” 标签页选择 “Build NSSM”，点击 “Run workflow”。
-- **版本标签**：将版本改动提交后，创建并推送以 `v` 开头的标签，例如：
+- **版本标签**：更新并提交 `version.h` 后，创建并推送对应的稳定版本标签：
   ```bash
-  git tag -a v3.0.1 -m "Release v3.0.1"
-  git push origin v3.0.1
+  git tag -a v3.0.2 -m "Release v3.0.2"
+  git push origin v3.0.2
   ```
-  标签应指向包含该工作流配置的提交，并与 `version.h` 中的版本号保持一致。普通分支推送不会自动触发构建。
+- **手动运行标签**：如果标签推送后未生成运行记录，可对同一标签执行完整构建及发布：
+  ```bash
+  gh workflow run build.yml --repo pedoc/nssm --ref v3.0.2
+  ```
+- **手动运行分支**：在 Actions 页面选择 “Build NSSM” → “Run workflow”。分支运行仅生成 Artifacts，不创建 Release。
 
-构建完成后，在该运行记录页面下载 `nssm-win32-Release` 和 `nssm-win64-Release` 工件（包含 `.exe` 和 `.dll` 文件）。
+标签必须采用 `vX.Y.Z` 格式，与 `version.h` 中的版本一致，并指向包含本工作流的提交。普通分支推送不会自动触发构建，已有标签不应改写。
 
-主要步骤（简述）：
-- Checkout 代码
-- 定位 VS 并获取 `devenv.com`
-- `devenv nssm.sln /Upgrade` 升级旧工程（VS2008 `.vcproj`）
-- 使用 matrix 策略并行构建 win32 和 win64 平台（每个平台独立执行 `msbuild nssm.sln /p:Configuration=Release /p:Platform=win32|win64 /m`）
-- 分别收集 `out\Release\win32\*` 和 `out\Release\win64\*` 并上传 Artifacts
+发布资产可从 [GitHub Releases](https://github.com/pedoc/nssm/releases) 下载：
+- `nssm-win32.zip`：ZIP 根目录包含 32 位 `nssm.exe`。
+- `nssm-win64.zip`：ZIP 根目录包含 64 位 `nssm.exe`。
+- `SHA256SUMS.txt`：两个 ZIP 的 SHA256 校验值。
+
+主要步骤：
+1. 运行发布配置测试，并核对标签与程序版本。
+2. 使用 Visual Studio 升级旧工程，分别构建两个架构。
+3. 检查 EXE 存在且版本正确，打包 ZIP 并上传 Actions Artifacts。
+4. 两个架构都成功后，创建 Release 草稿并上传三个资产。
+5. 下载草稿资产校验 SHA256，成功后才公开发布。
+6. 使用不带认证的公开下载地址再次下载并校验；失败即令发布任务失败。
+
+工作流不会静默覆盖已有 Release 或其资产。失败后应先检查运行日志和草稿状态，再决定如何恢复。
+
+发布配置测试（Python 3.10+）：
+```bash
+python -m pip install -r tests/requirements.txt
+python -IB -m pytest -q -p no:cacheprovider tests
+```
+这些测试验证工作流契约；实际 Windows 编译、打包与发布下载由 GitHub Actions 验证。
 
 ### 2) 本地构建（手动）
 前置条件：Windows + 安装 Visual Studio（建议 2019/2022，含 C++ 桌面开发组件）。
