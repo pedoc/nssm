@@ -11,7 +11,7 @@ NSSM 是一个将任意可执行程序作为 Windows 服务运行并进行管理
 ### 版本说明
 本仓库基于 NSSM 原作（作者 Iain Patterson，上游网站：[nssm.cc](https://nssm.cc/)），遵循 Public Domain 许可。
 在原版基础上主要进行了以下维护与增强：
-- 版本信息升级到 `3.0.0`（`version.h`）。
+- 版本信息为 `3.0.1`（`version.h`）。
 - 最低系统基线明确为 Windows 7（`_WIN32_WINNT=0x0601`）。
 - 清理并修复多处稳定性问题（句柄泄漏、内存释放一致性、边界/指针判断、注册表类型校验等）。
 - 服务类型与现代 Windows 行为对齐：不再使用交互式服务类型，统一按 `SERVICE_WIN32_OWN_PROCESS` 处理。
@@ -22,14 +22,19 @@ NSSM 是一个将任意可执行程序作为 Windows 服务运行并进行管理
 核心功能与命令行参数保持与原版兼容；如需原版发布与英文文档，请参见上游站点。
 
 ## 构建方式
-### 1) GitHub Actions（推荐，手动触发）
+### 1) GitHub Actions（推荐，手动或版本标签触发）
 仓库已提供工作流：`.github/workflows/build.yml`。默认同时构建 32 位和 64 位 Release 版本，并收集产物到 GitHub Artifacts。
 
 触发方式：
-1. Push 代码到仓库。
-2. 在 GitHub 仓库的 “Actions” 标签页，选择 “Build NSSM” 工作流。
-3. 点击 “Run workflow” 手动运行。
-4. 构建完成后，在该运行记录页面下载 `nssm-win32-Release` 和 `nssm-win64-Release` 工件（包含 `.exe` 和 `.dll` 文件）。
+- **手动运行**：推送代码后，在 GitHub 仓库的 “Actions” 标签页选择 “Build NSSM”，点击 “Run workflow”。
+- **版本标签**：将版本改动提交后，创建并推送以 `v` 开头的标签，例如：
+  ```bash
+  git tag -a v3.0.1 -m "Release v3.0.1"
+  git push origin v3.0.1
+  ```
+  标签应指向包含该工作流配置的提交，并与 `version.h` 中的版本号保持一致。普通分支推送不会自动触发构建。
+
+构建完成后，在该运行记录页面下载 `nssm-win32-Release` 和 `nssm-win64-Release` 工件（包含 `.exe` 和 `.dll` 文件）。
 
 主要步骤（简述）：
 - Checkout 代码

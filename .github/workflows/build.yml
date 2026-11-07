@@ -2,6 +2,9 @@ name: Build NSSM
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
