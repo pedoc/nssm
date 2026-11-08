@@ -1,5 +1,22 @@
 # Measured validation status
 
+## Current service-management feature (uncommitted at local verification)
+
+The UI now manages NssmNext-owned services rather than browsing legacy Application values. Add/edit/delete/start/stop/restart use a native owned-service API and a dedicated service host. Production root sources remain hash-protected.
+
+Local evidence:
+
+- 50 Python contracts, 58 in-memory policy/CRUD assertions and 32 GUI/worker routing plus 6 allocation-boundary cases pass. The portable manager assertions do not link Windows service mutation code.
+- Production and separately built memory-backed UI/native-host builds succeed. The real production window was exercised only for startup, refresh, search/clear and close.
+- The actual memory-backed WinUI window was driven through owned listing/filtering, invalid/duplicate-name rejection, creation, immutable-name editing, start/stop/restart, cancelled deletion and confirmed deletion. Screenshots were opened and inspected; the LocalSystem notice was moved above the fold.
+- Final memory UI evidence is retained locally in ignored `out/management-ui-4e35f378b55e429e94bd5f798de85fd4/` (PNG images, observations and verification report). Two prior automation runs exposed modal-transition timing/InvokePattern errors; their captures were retained, modal actions were serialized and the successful final run used pointer clicks constrained to its owned foreground window.
+- Bounded read-only review found a concurrent-save race. A protected global mutation mutex now covers revalidation/write/revision/rollback across cooperating manager instances; follow-up review found no remaining issue in that fix. External administrative writers are not serialized by this mutex.
+- The guarded native integration executable builds but has not been run locally. The user expressly authorized its real service CRUD/control run only on a disposable GitHub-hosted Windows runner, plus this feature's experimental-branch commit/push. Actual SCM/LocalSystem/protected-deployment behavior is pending that run.
+
+No actual local service was created, edited, started, stopped or deleted during this feature's verification. Historical incident details below must not be erased or represented as if the earlier violation never happened.
+
+## Earlier GUI-default prototype history
+
 ## Current GUI-first scope — 2026-11-08
 
 The user confirmed that no services depend on the new executable and removed backward CLI/SCM compatibility as a gate. They chose to retain C++/WinUI 3 self-contained output and later distribute a runtime ZIP via GitHub Release plus Scoop. No release or Scoop publication has been requested for this stage.

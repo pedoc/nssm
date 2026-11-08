@@ -35,6 +35,10 @@
       <PreprocessorDefinitions>wmain=NssmRouterUnderTest;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)router-entry.obj</ObjectFileName>
     </ClCompile>
+    <ClCompile Include="..\..\src\ServiceHost\main.cpp">
+      <PreprocessorDefinitions>wmain=NssmWorkerRouterUnderTest;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)worker-entry.obj</ObjectFileName>
+    </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

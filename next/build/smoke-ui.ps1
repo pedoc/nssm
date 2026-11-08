@@ -69,7 +69,7 @@ try {
         if ($process.HasExited) { throw "UI exited: $($process.ExitCode)" }
         $process.MainWindowHandle -ne [IntPtr]::Zero
     } 'No application window appeared'
-    if ($process.MainWindowTitle -notlike '*只读原型*') { throw "Unexpected window: $($process.MainWindowTitle)" }
+    if ($process.MainWindowTitle -notlike '*NSSM Next*') { throw "Unexpected window: $($process.MainWindowTitle)" }
     $window = [Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
     $result.Window = 'passed'
     $refresh = Find-Control $window 'RefreshButton'

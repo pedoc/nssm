@@ -1,13 +1,13 @@
 # Toolchain and verification
 
-Use native MSBuild, a Windows SDK, Microsoft.WindowsAppSDK.WinUI 2.6.5 and Microsoft.Windows.CppWinRT 3.0.260818.1. The prototype is x64; its project supports the installed v145 toolchain and a v143 fallback.
+Use native MSBuild, a Windows SDK, Microsoft.WindowsAppSDK.WinUI 2.6.5 and Microsoft.Windows.CppWinRT 3.0.260818.1. Targets are currently x64; v145 and v143 toolchains are supported.
 
-The App uses the Windows GUI subsystem and `wmainCRTStartup`, retaining CRT initialization and a directly testable wide-argument router. No arguments and exact `--ui` both enter WinUI. CLI/SCM backward compatibility is not a gate.
+Build `App` to produce the WinUI manager and its project-referenced native ServiceHost. The GUI uses Windows subsystem + CRT `wmainCRTStartup`. Core compiles unchanged root supervision sources plus native management/policy/storage adapters; scoped symbol definitions isolate legacy message registration/logging.
 
-Build products, generated messages, package restores and intermediate files stay under next. The old root solution and release assets are not modified. Format only prototype C++ files with `clang-format` and `next/.clang-format`; never format the hash-protected root sources.
+`Management` builds portable policy/in-memory assertions without Windows service mutation code. `Router` builds GUI/host entry stubs. `App -UiTestBackend` explicitly enables a separate build-time memory provider and writes to `out/UiTests`, never replacing the production GUI output. The default build explicitly disables this property even if it exists in the environment.
 
-Validate root SHA256 protection, project/default-GUI contracts, native build/routing tests and both default/explicit UI launches. No local service operations or service-lifecycle CI are needed for this stage.
+Runtime GUI verification follows `next/.claude/skills/verify/SKILL.md`: drive the actual memory-backed window and inspect captured PNGs; production UI is read-only locally. Actual SCM/LocalSystem/deployment/concurrency integration is guarded to the separately authorized disposable CI runner.
 
-Deployment decision: retain native C++/WinUI 3 self-contained output. Later produce a runtime ZIP for GitHub Release and a Scoop manifest/shortcut; no single-EXE rewrite, installer or self-extractor. Runtime DLLs/resources must be retained. Publishing and clean-machine validation are follow-up work.
+All build/package/generated output remains inside next. Format only authored prototype C++ files with next/.clang-format; do not format the 41 hash-protected root files. Do not present contract counts as a measured source-coverage percentage.
 
-References: Microsoft WindowsAppSDK-Samples `Samples/SelfContainedDeployment/cpp/cpp-winui-unpackaged`, Windows App SDK self-contained deployment docs and MSVC `/ENTRY` documentation.
+Distribution remains a complete WinUI runtime ZIP plus `NssmNext.ServiceHost.exe`, followed later by GitHub Release and Scoop packaging. Exclude debug/test/build artifacts, not runtime DLLs/resources or the host. Publication is separate authorization.

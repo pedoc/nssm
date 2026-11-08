@@ -30,6 +30,7 @@
       <Optimization>MaxSpeed</Optimization>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ConformanceMode>false</ConformanceMode>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <!-- $(RepoRoot) must NOT be on the include path: nssm.h does #include <io.h>
            (CRT) and the repo-root io.h would shadow it, breaking declaration order. -->
       <AdditionalIncludeDirectories>$(LegacyGeneratedDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -40,13 +41,15 @@
     <ClCompile Include="$(RepoRoot)account.cpp" />
     <ClCompile Include="$(RepoRoot)console.cpp" />
     <ClCompile Include="$(RepoRoot)env.cpp" />
-    <ClCompile Include="$(RepoRoot)event.cpp" />
+    <ClCompile Include="$(RepoRoot)event.cpp">
+      <PreprocessorDefinitions>log_event=NssmLegacyLogEvent;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="$(RepoRoot)gui.cpp" />
     <ClCompile Include="$(RepoRoot)hook.cpp" />
     <ClCompile Include="$(RepoRoot)imports.cpp" />
     <ClCompile Include="$(RepoRoot)io.cpp" />
     <ClCompile Include="$(RepoRoot)nssm.cpp">
-      <PreprocessorDefinitions>wmain=NssmLegacyMain;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>wmain=NssmLegacyMain;create_messages=NssmNextSkipLegacyMessages;service_main=NssmNextServiceMain;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="$(RepoRoot)process.cpp" />
     <ClCompile Include="$(RepoRoot)registry.cpp" />
@@ -54,7 +57,17 @@
     <ClCompile Include="$(RepoRoot)settings.cpp" />
     <ClCompile Include="$(RepoRoot)utf8.cpp" />
     <ClCompile Include="NativeServices.cpp" />
+    <ClCompile Include="NativeServiceActions.cpp" />
+    <ClCompile Include="MutationGuard.cpp" />
+    <ClCompile Include="ServicePolicy.cpp" />
+    <ClCompile Include="ServiceHostDeployment.cpp" />
+    <ClCompile Include="ServiceHostBridge.cpp" />
+    <ClCompile Include="NativeEvents.cpp" />
     <ClInclude Include="NativeServices.h" />
+    <ClInclude Include="ServiceModel.h" />
+    <ClInclude Include="ServicePolicy.h" />
+    <ClInclude Include="NativeServicesInternal.h" />
+    <ClInclude Include="ServiceHostBridge.h" />
   </ItemGroup>
   <Target Name="GenerateLegacyMessages" BeforeTargets="ClCompile" Inputs="$(RepoRoot)messages.mc" Outputs="$(LegacyGeneratedDir)messages.h">
     <MakeDir Directories="$(LegacyGeneratedDir)" />

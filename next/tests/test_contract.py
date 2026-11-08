@@ -227,9 +227,12 @@ class AppProjectContractTests(unittest.TestCase):
 class NativeReadPolicyTests(unittest.TestCase):
     def test_registry_string_size_is_checked_before_allocation(self) -> None:
         source = (SRC / "Core" / "NativeServices.cpp").read_text(encoding="utf-8")
-        check = "detail::IsValidApplicationBytes(bytes)"
-        self.assertIn(check, source)
-        self.assertLess(source.index(check), source.index("std::vector<wchar_t>"))
+        start = source.index("std::wstring ReadString(")
+        end = source.index("std::uint32_t ReadDword(", start)
+        reader = source[start:end]
+        check = "IsValidApplicationBytes(bytes)"
+        self.assertIn(check, reader)
+        self.assertLess(reader.index(check), reader.index("std::vector<wchar_t>"))
 
 
 class AppMainContractTests(unittest.TestCase):
@@ -246,11 +249,10 @@ class AppMainContractTests(unittest.TestCase):
         self.assertRegex(self.text, r"argc\s*==\s*2")
         self.assertIn('"--ui"', self.text)
 
-    def test_legacy_path_calls_nssmlegacymain(self) -> None:
-        self.assertIn("NssmLegacyMain", self.text)
-        self.assertRegex(
-            self.text, r"return\s+NssmLegacyMain\s*\(\s*argc\s*,\s*argv\s*\)"
-        )
+    def test_gui_entry_does_not_expose_legacy_mutating_cli(self) -> None:
+        self.assertNotIn("NssmLegacyMain", self.text)
+        self.assertIn("RunVersion", self.text)
+        self.assertIn("return 87", self.text)
 
     def test_no_process_spawning_apis(self) -> None:
         lowered = self.text.lower()

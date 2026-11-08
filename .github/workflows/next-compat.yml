@@ -52,3 +52,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./next/out/Tests/RouterTests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build and run in-memory management policy
+        run: |
+          pwsh -NoProfile -File next/build/build.ps1 -Project Management
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./next/out/Tests/ManagementTests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify isolated owned-service backend
+        run: |
+          pwsh -NoProfile -File next/build/build.ps1 -Project Integration
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pwsh -NoProfile -File next/build/run-managed-integration.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain isolated backend evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-managed-evidence-${{ github.run_id }}
+          path: next/out/managed-integration/
+          if-no-files-found: warn
+          retention-days: 7

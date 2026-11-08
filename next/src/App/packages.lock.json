@@ -63,6 +63,12 @@
       },
       "core": {
         "type": "Project"
+      },
+      "servicehost": {
+        "type": "Project",
+        "dependencies": {
+          "Core": "[1.0.0, )"
+        }
       }
     },
     "native,Version=v0.0/win10-x64": {

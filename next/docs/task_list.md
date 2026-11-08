@@ -1,30 +1,31 @@
 # Tasks
 
-## Current direction (user update 2026-11-08)
+## Service-management feature
 
-No services depend on the new executable. Backward CLI/SCM compatibility is not a gate. Keep C++/WinUI 3 self-contained deployment; later distribute a ZIP via GitHub Release and install/create shortcuts through Scoop.
-
-- [x] Make no-argument / Explorer startup open the GUI without a console window; keep `--ui` as an alias.
-- [x] Verify both default and explicit GUI startup, refresh, search/clear and normal close without creating services.
-- [x] Remove old Reference/CLI parity and SCM lifecycle gates from automatic CI.
-- [x] Record the runtime ZIP + future Scoop distribution decision; no single-EXE framework rewrite or self-extracting launcher.
-- [x] Pass 38 Python contracts, 24 compiled routing cases and 6 allocation-boundary cases, native build, formatting/lint and script syntax checks.
-- [x] Protect the 41 production-file hashes and original icon resources.
-- [x] Obtain tool-restricted static review of the native implementation and GUI-default entrypoint delta.
-- [x] Disclose the unauthorized local review incident and complete user-approved recovery; independently verify no test service/key, event source or prototype process remains.
-- [x] Commit/push only the authorized experimental branch and verify its GUI build/test CI: source `c5a8f81`, run `42457702386` passed all steps, 38 contracts and 24 routing / 6 boundary cases.
+- [x] Replace legacy Application-only listing with NssmNext ownership/schema/instance/host filtering.
+- [x] Implement basic add/edit/delete and start/stop/restart native operations with identity checks, stale-edit rejection and compensating cleanup.
+- [x] Add protected cross-process mutation serialization, retaining the lock through revalidation/write/rollback.
+- [x] Add a standalone native host, private event logging and protected content-addressed host deployment.
+- [x] Wire WinUI management buttons, configuration dialog, explicit elevation, confirmation and busy/modal lifetime guards.
+- [x] Observe actual memory-backed UI list/filter/create/edit/duplicate rejection/start/stop/restart/cancel/delete, with readable screenshots.
+- [x] Put the LocalSystem warning at the top of the editor and label the host PID accurately.
+- [x] Build the production UI and observe read-only refresh/search/close without service mutations.
+- [x] Pass 50 source/safety contracts, 58 portable management assertions and 32 routing / 6 allocation-boundary cases.
+- [x] Obtain bounded read-only review; fix the concurrent-update finding and verify the fix statically.
+- [x] Receive explicit user authorization for experimental-branch push and real integration on disposable GitHub-hosted Windows only.
+- [ ] Run real isolated SCM create/edit/concurrency/identity/start/restart/stop/delete checks and retain evidence.
+- [ ] Commit/push only the authorized experimental branch after preflight.
 
 ## Follow-up product work
 
-- [ ] Exercise row filtering/selection with trustworthy test data; contaminated historical local results are not acceptance evidence.
-- [ ] Complete automated pixel capture, theme/DPI/keyboard and close-during-refresh coverage.
-- [ ] Validate GUI deployment on a clean supported machine.
-- [ ] Stage only required runtime files/notices into release ZIPs, excluding debug symbols and build intermediates.
-- [ ] Publish GitHub Release assets and a Scoop manifest/shortcut when explicitly requested.
-- [ ] Define future service hosting before enabling any service creation/control UI; the GUI-first executable is not a no-argument SCM host.
+- [ ] Advanced logon credentials, environment and I/O settings UI.
+- [ ] Additional keyboard, accessibility, DPI/theme and abnormal-close coverage.
+- [ ] Clean-machine ZIP GUI deployment validation.
+- [ ] Stage required runtime files/notices and native host into release ZIPs, excluding build/debug/test artifacts.
+- [ ] Publish GitHub Release and Scoop manifest/shortcut only when explicitly requested.
 
-## Historical scope
+## Boundaries/history
 
-The earlier explicit-`--ui`-only router, Reference version/EXE-only probes and hosted service-smoke experiments were for an earlier compatibility direction. They are not current acceptance gates and must not be silently resumed.
+Default startup is GUI-first; old CLI compatibility is not a gate. Current service-hosting tests exercise the new manager, not the obsolete legacy service-smoke experiment. No existing production NSSM service is imported or migrated.
 
-Production sources/binaries, existing local services, main, Release and Scoop remain outside the current prototype changes. No release publication or production replacement is authorized by these checks.
+The previous unauthorized local review incident was disclosed and recovered with user approval. Local verification now uses the separately built memory-only UI backend; actual service mutations must not be run locally. Main, production root sources, Release and Scoop remain outside current changes.

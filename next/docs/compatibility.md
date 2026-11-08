@@ -1,9 +1,11 @@
-# Scope and production safety
+# Product scope and production safety
 
-On 2026-11-08 the user confirmed that no services depend on the new executable. Backward CLI/SCM compatibility is not a gate for the GUI-first prototype.
+The user confirmed that no services depend on the new GUI executable. Backward CLI/SCM compatibility is not a gate. No old NSSM service is automatically imported, migrated or reconfigured.
 
-No-argument / Explorer startup opens WinUI. Exact `--ui` is an alias; other argument-based commands currently reuse the native core without a compatibility promise. Do not install this executable as a no-argument SCM service host.
+`NssmNext.exe` opens the manager by default or with `--ui`, accepts read-only version aliases, and rejects legacy mutating CLI commands. New services use the separate `NssmNext.ServiceHost.exe --service` protocol and instance metadata. The GUI executable itself is not a no-argument SCM host.
 
-Production root files, binaries, releases, Scoop and existing local service registrations must not be changed or migrated automatically. The 41-file SHA256 baseline protects that boundary; it is not proof of feature parity.
+Production root files, published binaries, main, Release, Scoop and existing local services remain protected. The 41-file SHA256 baseline checks root immutability, not feature parity. Native logging is routed to the separate NssmNext event source instead of rewriting the old NSSM provider.
 
-Old Reference/CLI/service smoke tools are historical experiments, not automatic CI gates for this GUI-first direction. Never execute local install/edit/start/stop/remove probes. Native installation also rewrites the shared NSSM Event Log message registration; an unauthorized review did so and was disclosed and recovered with user approval, as recorded in validation.md.
+Real integration now validates new owned-service functionality only on an explicitly authorized disposable runner; it is not a return to the old compatibility-testing requirement. Historical Reference/service-smoke tools are not automatically invoked.
+
+Never use actual local install/edit/start/stop/remove probes for verification. The earlier unauthorized local review incident and its user-approved recovery remain documented in validation.md.

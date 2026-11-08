@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Core', 'App', 'Reference', 'Router', 'Capture')]
+    [ValidateSet('Core', 'App', 'ServiceHost', 'Reference', 'Router', 'Capture', 'Management', 'Integration')]
     [string]$Project = 'App',
     [string]$Proxy = '',
     [string]$WindowsTargetPlatformVersion = '',
@@ -8,6 +8,7 @@ param(
     [switch]$RestoreOnly,
     [switch]$NoRestore,
     [switch]$UseVerifiedCache,
+    [switch]$UiTestBackend,
     [switch]$Rebuild
 )
 
@@ -46,7 +47,8 @@ if ($Proxy) {
     $env:NO_PROXY = ''
     $env:no_proxy = ''
 }
-$projectFile = if ($Project -in @('Reference', 'Router', 'Capture')) {
+if ($UiTestBackend -and $Project -ne 'App') { throw 'UiTestBackend is only valid for the App project' }
+$projectFile = if ($Project -in @('Reference', 'Router', 'Capture', 'Management', 'Integration')) {
     Join-Path $nextRoot "tests/$Project/$Project.vcxproj"
 } else {
     Join-Path $nextRoot "src/$Project/$Project.vcxproj"
@@ -61,6 +63,7 @@ $arguments = @(
     '/nologo',
     "/v:$Verbosity"
 )
+if ($Project -eq 'App') { $arguments += ('/p:NssmNextUiTestBackend=' + $UiTestBackend.IsPresent.ToString().ToLowerInvariant()) }
 if ($Project -eq 'App') {
     New-Item -ItemType Directory -Path (Join-Path $nextRoot 'obj/verified-source') -Force | Out-Null
     if ($RestoreOnly) { $arguments += '/t:Restore' }

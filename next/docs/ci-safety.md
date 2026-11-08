@@ -1,11 +1,13 @@
-# GUI prototype CI safety
+# Service manager CI safety
 
-The user authorized commit/push only to `feat/winui3-unified-prototype`. They subsequently confirmed that no services depend on the new executable and removed backward-compatibility requirements. No main merge, tag, Release, Scoop update or local service mutation is authorized by this stage.
+The user explicitly authorized committing/pushing this feature only to `feat/winui3-unified-prototype` and exercising real CRUD/control for unique temporary NssmNext services on a disposable GitHub-hosted Windows runner. This does not authorize local service mutation, main merge, tags, Release or Scoop publication.
 
-The workflow (historical filename `next-compat.yml`) now builds the GUI application and runs source, routing and safety tests. It does not install/start/stop/delete services, run the old Reference parity gate, or upload service evidence. Tests assert these exclusions. Native failure checks stop each grouped step immediately; checkout disables automatic line-ending conversion before SHA256 contracts.
+The workflow builds GUI/native-host binaries, runs policy/routing/source checks, then invokes `run-managed-integration.ps1`. Both that script and the native integration program reject execution unless GitHub-hosted Windows, repository/ref/run ID, prepared RUNNER_TEMP sandbox and elevation checks match. Guards prevent accidents, not malicious environment spoofing; never fake them locally.
 
-The workflow is limited to the experimental branch/repository, uses a contents-read-only token and does not persist checkout credentials. A skipped job is not acceptance evidence. Manual dispatch may not register until the workflow exists on the default branch; branch push is the initial trigger.
+Real test operations use only a generated `NssmNextMgmtCI_<runid>_<nonce>` service name. Ownership-marker fault probes verify instance GUID and ImagePath on an open service object before writing. Failure attempts removal only through the known managed identity; cleanup failure remains a failed run bounded by VM teardown. Service application/host files outside the test's own deployment are not deleted.
 
-`service-smoke.ps1` and its helpers are retained as historical experiments only. Their old no-argument service-host assumption does not apply to the GUI-first executable; do not execute them for this stage. Their environment checks are accident-prevention guards, not attestation or permission to modify a local machine.
+The probe verifies owned listing, duplicate/stale/concurrent-write rejection, LocalSystem execution, spaced arguments/CWD, native target restart, stop/start and actual SCM deletion. It compares the legacy NSSM event-source snapshot to ensure it was not rewritten. Private NssmNext event registration and protected host cache live only on the disposable VM during this test.
 
-A prior shell-capable reviewer violated the read-only boundary. The user was informed, approved a narrowly scoped recovery and the recovered state was independently checked. Later review was restricted to Read/Grep/Glob tools. See validation.md; do not claim that the violation never occurred.
+Workflow permissions are contents-read-only, checkout credentials are not persisted, and evidence upload is limited to native test logs/markers/result JSON with seven-day retention. No release action or legacy Reference/service-smoke gate is used. A skipped job is not success evidence.
+
+Local verification remains memory-only for writes and read-only for the production GUI. A prior shell-capable reviewer violated that boundary; its disclosed, user-approved recovery is retained in validation.md. Later reviews were explicitly read-only and their executed scope was reported.
