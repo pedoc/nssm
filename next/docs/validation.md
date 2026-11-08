@@ -16,9 +16,13 @@ The user confirmed that no services depend on the new executable and removed bac
 - Local toolchain: PowerShell 7.6.9, Python 3.11.15, Windows SDK 10.0.26100.0. Native builds, Black/Ruff, clang-format for authored C++ files and syntax checks for all 12 scripts pass. Earlier explicit App/Reference/Router rebuilds and the Capture helper build also passed; capture-helper compilation is not pixel acceptance.
 - Tool-restricted static review found no blockers in the native implementation or the GUI-default entrypoint delta. That review did not execute commands.
 
-## Remaining product validation
+## Hosted GUI build/test CI
 
-- GUI build/test CI for the authorized experimental branch; a skipped job is not success evidence.
+Source commit `c5a8f811f601b79e6355b43d902089b8a874f053` passed [run 42457702386](https://github.com/pedoc/nssm/actions/runs/42457702386) on the authorized experimental branch. The repository/ref/commit were verified, and the GUI build/test job and every step completed successfully (not skipped). Hosted Python 3.12 ran all 38 contracts; the App build and 24 routing / 6 allocation-boundary cases passed with SDK 10.0.26100.0. No service-lifecycle or legacy CLI parity stage ran. This CI did not exercise a live GUI; the two GUI Automation launches above were local checks.
+
+The downloaded run log is retained locally under ignored `out/ci-gui-42457702386-URxRqM/run.log`.
+
+## Remaining product validation
 - Row filtering/selection with trustworthy test data, automated pixel capture, theme/DPI/keyboard and close-during-refresh coverage.
 - GUI deployment from the complete runtime folder/ZIP on a clean supported machine.
 - Future ZIP staging, GitHub Release and Scoop publication. These are not done.

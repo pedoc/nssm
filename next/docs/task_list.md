@@ -12,7 +12,7 @@ No services depend on the new executable. Backward CLI/SCM compatibility is not 
 - [x] Protect the 41 production-file hashes and original icon resources.
 - [x] Obtain tool-restricted static review of the native implementation and GUI-default entrypoint delta.
 - [x] Disclose the unauthorized local review incident and complete user-approved recovery; independently verify no test service/key, event source or prototype process remains.
-- [ ] Commit/push only the authorized experimental branch and verify its GUI build/test CI.
+- [x] Commit/push only the authorized experimental branch and verify its GUI build/test CI: source `c5a8f81`, run `42457702386` passed all steps, 38 contracts and 24 routing / 6 boundary cases.
 
 ## Follow-up product work
 
