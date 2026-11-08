@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{480D2EC0-FBA6-4234-9D99-EBA70224BEF8}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <RepoRoot>$(MSBuildThisFileDirectory)..\..\..\</RepoRoot>
+    <LegacyGeneratedDir>$(MSBuildThisFileDirectory)..\..\obj\legacy\</LegacyGeneratedDir>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v145</PlatformToolset>
+    <PlatformToolset Condition="'$(VisualStudioVersion)' == '17.0'">v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(MSBuildThisFileDirectory)..\..\out\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)..\..\obj\Core\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>NssmCore</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <ConformanceMode>false</ConformanceMode>
+      <!-- $(RepoRoot) must NOT be on the include path: nssm.h does #include <io.h>
+           (CRT) and the repo-root io.h would shadow it, breaking declaration order. -->
+      <AdditionalIncludeDirectories>$(LegacyGeneratedDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="$(RepoRoot)account.cpp" />
+    <ClCompile Include="$(RepoRoot)console.cpp" />
+    <ClCompile Include="$(RepoRoot)env.cpp" />
+    <ClCompile Include="$(RepoRoot)event.cpp" />
+    <ClCompile Include="$(RepoRoot)gui.cpp" />
+    <ClCompile Include="$(RepoRoot)hook.cpp" />
+    <ClCompile Include="$(RepoRoot)imports.cpp" />
+    <ClCompile Include="$(RepoRoot)io.cpp" />
+    <ClCompile Include="$(RepoRoot)nssm.cpp">
+      <PreprocessorDefinitions>wmain=NssmLegacyMain;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="$(RepoRoot)process.cpp" />
+    <ClCompile Include="$(RepoRoot)registry.cpp" />
+    <ClCompile Include="$(RepoRoot)service.cpp" />
+    <ClCompile Include="$(RepoRoot)settings.cpp" />
+    <ClCompile Include="$(RepoRoot)utf8.cpp" />
+    <ClCompile Include="NativeServices.cpp" />
+    <ClInclude Include="NativeServices.h" />
+  </ItemGroup>
+  <Target Name="GenerateLegacyMessages" BeforeTargets="ClCompile" Inputs="$(RepoRoot)messages.mc" Outputs="$(LegacyGeneratedDir)messages.h">
+    <MakeDir Directories="$(LegacyGeneratedDir)" />
+    <Exec Command="&quot;$(WindowsSdkDir)bin\$(WindowsTargetPlatformVersion)\x64\mc.exe&quot; -u -U -h &quot;$(LegacyGeneratedDir).&quot; -r &quot;$(LegacyGeneratedDir).&quot; &quot;$(RepoRoot)messages.mc&quot;" />
+  </Target>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

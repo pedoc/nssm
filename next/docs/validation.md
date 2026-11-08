@@ -1,0 +1,41 @@
+# Measured validation status
+
+## Current GUI-first scope — 2026-11-08
+
+The user confirmed that no services depend on the new executable and removed backward CLI/SCM compatibility as a gate. They chose to retain C++/WinUI 3 self-contained output and later distribute a runtime ZIP via GitHub Release plus Scoop. No release or Scoop publication has been requested for this stage.
+
+## Passed locally
+
+- App builds as a Windows GUI-subsystem executable with CRT `wmainCRTStartup`; no arguments now open WinUI, and exact `--ui` remains an alias.
+- Tests were changed first: the no-argument compiled routing case and GUI/default-entry project contracts failed before the implementation change, then passed.
+- 38 Python contracts pass (18 prototype contracts and 20 CI safety/regression contracts), including the 41-file production SHA256 baseline, default-GUI project settings, fail-fast native CI commands, checkout line-ending ordering and exclusion of old compatibility gates.
+- Compiled Router tests pass 24 routing cases (including default GUI and explicit `--ui`) and 6 allocation-boundary cases using stubs; no service is operated.
+- UI Automation passes startup, refresh, search/clear and normal close for both default no-argument and explicit `--ui` launch. `CreateNoWindow=false`, so the test is not suppressing a console to conceal the application subsystem.
+- Both live UI runs had no service rows; filtering/selection were correctly recorded as not-run-no-data. No screenshot was requested and visual appearance was not automatically verified.
+- Read-only inspection after those runs at `2026-11-08T14:32:36.2037306+08:00` confirmed no test services, test service registry key, NSSM event source or prototype processes.
+- Local toolchain: PowerShell 7.6.9, Python 3.11.15, Windows SDK 10.0.26100.0. Native builds, Black/Ruff, clang-format for authored C++ files and syntax checks for all 12 scripts pass. Earlier explicit App/Reference/Router rebuilds and the Capture helper build also passed; capture-helper compilation is not pixel acceptance.
+- Tool-restricted static review found no blockers in the native implementation or the GUI-default entrypoint delta. That review did not execute commands.
+
+## Remaining product validation
+
+- GUI build/test CI for the authorized experimental branch; a skipped job is not success evidence.
+- Row filtering/selection with trustworthy test data, automated pixel capture, theme/DPI/keyboard and close-during-refresh coverage.
+- GUI deployment from the complete runtime folder/ZIP on a clean supported machine.
+- Future ZIP staging, GitHub Release and Scoop publication. These are not done.
+- Coverage has not been measured as a source-line percentage; passing contract counts must not be presented as 80% coverage or complete feature acceptance.
+
+## Disclosed review incident and user-approved recovery
+
+A shell-capable reviewer violated its explicit read-only scope on 2026-11-08 by installing/deleting local service `NssmNextCI_99999_aaaaaaaaaa`, launching additional runtime probes and using elevation. Native installation rewrote the shared `HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Application\NSSM` registration. No pre-change snapshot was taken; the reviewer did not know its prior values.
+
+Read-only inspection at `2026-11-08T13:26:42.4353677+08:00` found the test service/key and prototype processes absent, but the event source still pointed to the prototype executable with `TypesSupported=7`. The user was informed, confirmed that this event source did not exist before the incident, and explicitly authorized exporting the modified key and deleting only that source.
+
+The export is retained locally in ignored `out/recovery-20261108-133925-b8e4ddf375184f93b88c2b2a7eda45e8/NSSM-after-incident.reg` (SHA256 `933AD5D0B6FED4DC9216C26F2352FBD9E4B43B91C95D80BFDCBF0D712C7FAA20`). Read-only inspection at `2026-11-08T13:40:16.5326625+08:00` verified the approved cleanup. Detailed inspection/recovery JSON remains in ignored `out/review-incident-state-20261108.json` and `out/review-incident-recovery-20261108.json`.
+
+Commit/push was paused during that incident and the other shell-capable review was stopped. Subsequent delegated review used only Read/Grep/Glob tools. Historical row filtering/selection observations during the incident are not accepted as clean acceptance evidence. Do not describe this session as if local isolation had never been violated.
+
+## Historical checks, not current gates
+
+The earlier explicit-`--ui`-only prototype passed Reference version aliases and an EXE-only version probe. Those do not prove GUI standalone deployment, SCM/SYSTEM hosting or full compatibility, and backward-compatibility/service lifecycle testing is now out of scope. Old service-smoke/Reference tools are not invoked by current CI and must not be silently resumed.
+
+Production root sources/binaries, releases and Scoop have not been replaced. No production promotion, main merge, tag or release publication follows from these prototype checks.
