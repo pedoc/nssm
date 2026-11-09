@@ -1,0 +1,4 @@
+BasedOnStyle: Microsoft
+BreakBeforeBraces: Attach
+ColumnLimit: 100
+SortIncludes: Never

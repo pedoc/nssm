@@ -1,0 +1,27 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.0.0
+MinimumVisualStudioVersion = 17.0.0.0
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "NssmCore", "src\Core\Core.vcxproj", "{480D2EC0-FBA6-4234-9D99-EBA70224BEF8}"
+EndProject
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "NssmNext", "src\App\App.vcxproj", "{5B339B95-374D-4AE4-9904-A67B1B1D7595}"
+EndProject
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "NssmNext.ServiceHost", "src\ServiceHost\ServiceHost.vcxproj", "{F3A7E017-C910-4918-88A4-EB82E46B2B49}"
+EndProject
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "NssmNext.ManagementTests", "tests\Management\Management.vcxproj", "{CC258502-58E0-40F5-83A3-E0B05493E4A8}"
+EndProject
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Release|x64 = Release|x64
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {480D2EC0-FBA6-4234-9D99-EBA70224BEF8}.Release|x64.ActiveCfg = Release|x64
+        {480D2EC0-FBA6-4234-9D99-EBA70224BEF8}.Release|x64.Build.0 = Release|x64
+        {5B339B95-374D-4AE4-9904-A67B1B1D7595}.Release|x64.ActiveCfg = Release|x64
+        {5B339B95-374D-4AE4-9904-A67B1B1D7595}.Release|x64.Build.0 = Release|x64
+        {F3A7E017-C910-4918-88A4-EB82E46B2B49}.Release|x64.ActiveCfg = Release|x64
+        {F3A7E017-C910-4918-88A4-EB82E46B2B49}.Release|x64.Build.0 = Release|x64
+        {CC258502-58E0-40F5-83A3-E0B05493E4A8}.Release|x64.ActiveCfg = Release|x64
+        {CC258502-58E0-40F5-83A3-E0B05493E4A8}.Release|x64.Build.0 = Release|x64
+    EndGlobalSection
+EndGlobal

@@ -1,0 +1,83 @@
+<Window x:Class="NssmNext.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="NSSM Next — 服务管理">
+    <Grid x:Name="RootPanel" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+        Padding="20" Loaded="Root_Loaded">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="12" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/><ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="服务" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <TextBox x:Name="SearchBox" Grid.Column="1" PlaceholderText="搜索服务或程序路径"
+                TextChanged="Search_Changed" AutomationProperties.Name="搜索 NssmNext 服务"/>
+            <Button x:Name="RefreshButton" Grid.Column="2" Click="Refresh_Click" Content="刷新"
+                AutomationProperties.Name="刷新服务"/>
+            <Button x:Name="NewButton" Grid.Column="3" Click="New_Click" Content="新增服务"
+                AccessKey="N" Style="{StaticResource AccentButtonStyle}"/>
+        </Grid>
+        <InfoBar x:Name="ModeBar" Grid.Row="1" IsOpen="True" IsClosable="False"
+            Severity="Informational" Margin="0,0,0,12">
+            <InfoBar.ActionButton><Button x:Name="ElevateButton" Content="以管理员身份重新打开" Click="Elevate_Click"/></InfoBar.ActionButton>
+        </InfoBar>
+        <InfoBar x:Name="StatusBar" Grid.Row="2" IsOpen="False" IsClosable="True"
+            Severity="Error"/>
+        <ScrollViewer x:Name="TableScroll" Grid.Row="3" HorizontalScrollBarVisibility="Auto"
+            HorizontalScrollMode="Auto" VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
+            <Grid MinWidth="1020" Width="{Binding ElementName=TableScroll, Path=ViewportWidth}" RowSpacing="0">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                    <!-- Column widths match ServiceColumns() in MainWindow.xaml.cpp. -->
+                    <Grid Padding="12,10" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="220"/><ColumnDefinition Width="88"/>
+                            <ColumnDefinition Width="132"/><ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="280"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="服务名称" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="状态" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="2" Text="启动类型" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="应用程序" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="4" Text="操作" FontWeight="SemiBold"/>
+                    </Grid>
+                </Border>
+                <ListView x:Name="ServiceList" Grid.Row="1" SelectionChanged="Selection_Changed"
+                    SelectionMode="Single" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="12,8"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="MinHeight" Value="58"/>
+                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                            <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}"/>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                </ListView>
+                <StackPanel x:Name="EmptyState" Grid.Row="1" VerticalAlignment="Center"
+                    HorizontalAlignment="Center" Spacing="8" MaxWidth="420" Margin="24">
+                    <TextBlock x:Name="EmptyTitle" Text="还没有 NssmNext 服务" FontSize="18"
+                        FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="EmptyMessage" Text="点击右上角的“新增服务”开始。这里只显示由 NssmNext 创建的服务。"
+                        TextWrapping="Wrap" TextAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+        <Grid Grid.Row="4" ColumnSpacing="16" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <TextBlock x:Name="ListCount" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+            <TextBlock x:Name="StatusMessage" Grid.Column="1" Text="正在读取服务列表…"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"
+                TextTrimming="CharacterEllipsis"/>
+        </Grid>
+    </Grid>
+</Window>

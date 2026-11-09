@@ -1,0 +1,9 @@
+out/
+obj/
+packages/
+Generated Files/
+.vs/
+.venv/
+__pycache__/
+.pytest_cache/
+*.user
