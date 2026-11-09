@@ -27,6 +27,7 @@ ServiceInfo ReadRecord(SC_HANDLE service, HKEY parameters, const std::wstring &n
 ScHandle OpenOwned(SC_HANDLE manager, const ServiceInfo &expected, DWORD access,
                    REGSAM registryAccess, RegHandle &parameters, ServiceInfo &actual);
 std::wstring DeployServiceHost(const std::wstring &source);
+void EnsureServiceHostAccess(const std::wstring &host);
 
 class MutationGuard {
   public:
@@ -45,8 +46,8 @@ class WindowsServices final : public IServiceManager {
     WindowsServices();
     ServiceSnapshot Read() override;
     ServiceInfo Read(const ServiceInfo &expected) override;
-    ServiceInfo Create(const ServiceConfiguration &configuration) override;
-    void Update(const ServiceInfo &expected, const ServiceConfiguration &configuration) override;
+    ServiceInfo Create(const ServiceConfiguration &configuration, const CredentialRequest &credentials = {}) override;
+    void Update(const ServiceInfo &expected, const ServiceConfiguration &configuration, const CredentialRequest &credentials = {}) override;
     void Remove(const ServiceInfo &expected) override;
     void Start(const ServiceInfo &expected) override;
     void Stop(const ServiceInfo &expected) override;

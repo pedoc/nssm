@@ -60,7 +60,7 @@ Windows::Foundation::IAsyncOperation<bool> MainWindow::EnsureWriteAccess() {
     if (nssm_next::ui::RelaunchElevated(m_owner))
         Application::Current().Exit();
     else
-        StatusBar().Message(L"已取消权限提升，未修改任何服务。");
+        ShowStatus(L"已取消权限提升，未修改任何服务。");
     co_return false;
 }
 fire_and_forget MainWindow::Elevate() {
@@ -109,82 +109,23 @@ fire_and_forget MainWindow::ShowEditor(bool isNew) {
                 co_return;
             }
         }
-        const auto editor =
-            nssm_next::ui::MakeServiceEditor(expected, isNew, RootPanel().XamlRoot(), m_owner,
-                                             isNew ? L"LocalSystem" : expected.account);
+        const auto editor = nssm_next::ui::MakeServiceEditor(expected, isNew, RootPanel().XamlRoot(), m_owner,
+            isNew ? L"LocalSystem" : expected.account);
+        m_editor = editor;
         const auto weakWindow = get_weak();
         std::weak_ptr<nssm_next::ui::ServiceEditor> weakEditor = editor;
-        editor->dialog.PrimaryButtonClick(
-            [weakWindow, weakEditor, expected,
-             isNew](auto const &,
-                    ContentDialogButtonClickEventArgs const &eventArgs) -> fire_and_forget {
-                const auto args = eventArgs;
-                const auto deferral = args.GetDeferral();
-                args.Cancel(true);
-                const auto self = weakWindow.get();
-                const auto state = weakEditor.lock();
-                if (!self || !state || self->m_closed || self->m_busy) {
-                    deferral.Complete();
-                    co_return;
-                }
-                nssm_next::ServiceConfiguration configuration;
-                try {
-                    configuration = state->Configuration();
-                    nssm_next::ValidateApplicationFiles(configuration);
-                } catch (nssm_next::ServiceError const &error) {
-                    state->ShowError(error.message);
-                    deferral.Complete();
-                    co_return;
-                } catch (std::exception const &) {
-                    state->ShowError(L"无法读取或验证输入。请检查配置。");
-                    deferral.Complete();
-                    co_return;
-                }
-                const auto manager = self->m_manager;
-                apartment_context ui;
-                self->SetBusy(true, true);
-                state->dialog.IsEnabled(false);
-                std::wstring error;
-                nssm_next::ServiceInfo saved;
-                co_await resume_background();
-                try {
-                    if (isNew)
-                        saved = manager->Create(configuration);
-                    else {
-                        manager->Update(expected, configuration);
-                        saved = expected;
-                        static_cast<nssm_next::ServiceConfiguration &>(saved) = configuration;
-                        ++saved.revision;
-                    }
-                } catch (nssm_next::ServiceError const &exception) {
-                    error = exception.message;
-                } catch (std::exception const &) {
-                    error = L"保存服务时发生异常，请刷新列表检查实际状态。";
-                }
-                co_await ui;
-                if (!self->m_closed) {
-                    state->dialog.IsEnabled(true);
-                    self->SetBusy(false);
-                    if (error.empty()) {
-                        state->saved = true;
-                        state->saved_service = std::move(saved);
-                        args.Cancel(false);
-                    } else
-                        state->ShowError(error);
-                }
-                deferral.Complete();
-            });
-        m_dialog_open = true;
-        UpdateControls();
-        co_await editor->dialog.ShowAsync();
-        m_dialog_open = false;
-        if (m_closed)
-            co_return;
+        editor->save_requested = [weakWindow, weakEditor, expected, isNew] {
+            if (const auto self = weakWindow.get())
+                if (const auto state = weakEditor.lock()) self->SaveEditor(state, expected, isNew);
+        };
+        m_dialog_open = true; UpdateControls();
+        co_await editor->ShowAsync();
+        m_editor.reset(); m_dialog_open = false;
+        if (m_closed) co_return;
         if (editor->saved) {
             m_selected = editor->saved_service.name + L"\n" + editor->saved_service.instance_id;
-            Refresh(isNew ? L"服务已创建，尚未启动。" : L"配置已保存；运行中的服务需重启后生效。");
-        } else
-            UpdateControls();
+            Refresh(isNew ? L"服务已创建，尚未启动。" : L"全部配置已保存；运行中的服务需重启后生效。");
+        } else UpdateControls();
     } catch (nssm_next::ServiceError const &error) {
         if (!m_closed) {
             m_dialog_open = false;
@@ -203,6 +144,40 @@ fire_and_forget MainWindow::ShowEditor(bool isNew) {
             SetBusy(false);
             ShowError(L"打开服务编辑器时发生异常。");
         }
+    }
+}
+fire_and_forget MainWindow::SaveEditor(std::shared_ptr<nssm_next::ui::ServiceEditor> editor, nssm_next::ServiceInfo expected, bool isNew) {
+    const auto lifetime = get_strong();
+    if (m_closed || m_busy || !editor || editor->IsSaving()) co_return;
+    try {
+        const auto configuration = editor->Configuration();
+        nssm_next::ValidateApplicationFiles(configuration);
+        auto credentials = editor->TakeCredentials();
+        const auto manager = m_manager;
+        nssm_next::ServiceInfo saved = expected;
+        static_cast<nssm_next::ServiceConfiguration &>(saved) = configuration;
+        if (!isNew) ++saved.revision;
+        apartment_context ui;
+        SetBusy(true, true); editor->SetSaving(true);
+        std::wstring error;
+        co_await resume_background();
+        try {
+            if (isNew) saved = manager->Create(configuration, credentials);
+            else manager->Update(expected, configuration, credentials);
+        } catch (const nssm_next::ServiceError &exception) { error = exception.message; }
+          catch (const std::exception &) { error = L"保存发生异常，请检查实际配置；账户密码未记录到日志。"; }
+        credentials.password.Clear();
+        co_await ui;
+        if (m_closed) co_return;
+        SetBusy(false); editor->SetSaving(false);
+        if (error.empty()) { editor->saved_service = std::move(saved); editor->CloseSaved(); }
+        else editor->ShowError(error);
+    } catch (const nssm_next::ServiceError &error) {
+        if (!m_closed) { SetBusy(false); editor->SetSaving(false); editor->ShowError(error.message); }
+    } catch (const hresult_error &error) {
+        if (!m_closed) { SetBusy(false); editor->SetSaving(false); editor->ShowError(std::wstring(error.message())); }
+    } catch (const std::exception &) {
+        if (!m_closed) { SetBusy(false); editor->SetSaving(false); editor->ShowError(L"无法读取或提交配置草稿。"); }
     }
 }
 fire_and_forget MainWindow::Execute(Action action) {
@@ -247,8 +222,7 @@ fire_and_forget MainWindow::Execute(Action action) {
         const auto manager = m_manager;
         apartment_context ui;
         SetBusy(true, true);
-        StatusBar().Severity(InfoBarSeverity::Informational);
-        StatusBar().Message(L"正在执行服务操作，请稍候…");
+        ShowStatus(L"正在执行服务操作，请稍候…");
         std::wstring error;
         co_await resume_background();
         try {

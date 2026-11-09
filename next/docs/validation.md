@@ -1,6 +1,18 @@
 # Measured validation status
 
-## Current service-management feature (uncommitted at local verification)
+## Complete editor and release pipeline — 2026-11-09
+
+The user manually inspected the editor/table UI, requested visual refinements and then accepted its current direction. This is not blanket acceptance of all account, hook, logging or native runtime behavior.
+
+For the README/CI handoff, the production App/native host, memory preview, Capture and guarded Integration executable build successfully. Local checks passed 56 Python contracts, 32 routing cases plus 6 allocation-boundary cases, 58 memory-policy assertions and 34 advanced configuration codec assertions. PowerShell syntax, Black and Ruff checks pass. No real local service, account, registry or ACL mutation was performed.
+
+Two current README screenshots were captured and visually opened from a separately spawned memory-only UI (list and blank application page only). Initial capture-driver attempts exposed an Automation-condition name collision and owned-window enumeration mismatch; those driver mechanics were corrected. No configuration was saved and no credentials page was opened. This was bounded documentation capture, not an eleven-page automated acceptance run.
+
+The production runtime packager produced a ZIP with 264 payload files, retaining DLL/PRI/XBF/language resources and package licences while excluding debug/build/test outputs. Every inventoried ZIP entry was checked against its staged size and SHA256. This does not replace clean-machine deployment acceptance.
+
+`next-release.yml` now defines tag-gated `next-v*` prereleases, separate from legacy `v*` releases. Source/release contract tests cover its triggers, least-privilege permissions, fail-fast checks, draft/download verification and non-overwrite behavior. Hosted execution and actual public Release download are separate evidence, to be reported from the corresponding Actions run rather than inferred from these local checks.
+
+## Earlier service-management feature (uncommitted at that local verification)
 
 The UI now manages NssmNext-owned services rather than browsing legacy Application values. Add/edit/delete/start/stop/restart use a native owned-service API and a dedicated service host. Production root sources remain hash-protected.
 

@@ -1,5 +1,6 @@
 #include "NativeServicesInternal.h"
 #include "ApplicationValuePolicy.h"
+#include "NativeConfigurationStore.h"
 #include <algorithm>
 #include <array>
 
@@ -12,16 +13,31 @@ std::wstring CurrentExecutablePath() {
     return {path.data(), length};
 }
 void ValidateApplicationFiles(const ServiceConfiguration &configuration) {
-    const auto file = GetFileAttributesW(configuration.application.c_str());
-    if (file == INVALID_FILE_ATTRIBUTES || (file & FILE_ATTRIBUTE_DIRECTORY))
-        throw ServiceError(L"可执行文件不存在或不是文件，请检查程序路径。", ERROR_FILE_NOT_FOUND);
-    DWORD type = 0;
-    if (!GetBinaryTypeW(configuration.application.c_str(), &type))
-        throw ServiceError(L"程序不是可直接运行的 Windows 可执行文件。脚本请使用对应解释器。",
-                           ERROR_BAD_EXE_FORMAT);
-    const auto directory = GetFileAttributesW(configuration.working_directory.c_str());
-    if (directory == INVALID_FILE_ATTRIBUTES || !(directory & FILE_ATTRIBUTE_DIRECTORY))
-        throw ServiceError(L"工作目录不存在，请选择有效目录。", ERROR_PATH_NOT_FOUND);
+    // Expandable paths are resolved by the host under the service identity and
+    // configured environment, never against the administrator GUI environment.
+    const auto expandable = [](const std::wstring &value) {
+        const auto first = value.find(L'%');
+        return first != std::wstring::npos && value.find(L'%', first + 1) != std::wstring::npos;
+    };
+    if (!expandable(configuration.application)) {
+        const auto file = GetFileAttributesW(configuration.application.c_str());
+        if (file == INVALID_FILE_ATTRIBUTES || (file & FILE_ATTRIBUTE_DIRECTORY))
+            throw ServiceError(L"可执行文件不存在或不是文件，请检查程序路径。", ERROR_FILE_NOT_FOUND);
+        DWORD type = 0;
+        if (!GetBinaryTypeW(configuration.application.c_str(), &type))
+            throw ServiceError(L"程序不是可直接运行的 Windows 可执行文件。脚本请使用对应解释器。", ERROR_BAD_EXE_FORMAT);
+    }
+    auto path = configuration.working_directory;
+    if (path.empty()) {
+        const auto slash = configuration.application.find_last_of(L"\\/");
+        if (slash == std::wstring::npos) return;
+        path = configuration.application.substr(0, slash == 2 ? 3 : slash);
+    }
+    if (!expandable(path)) {
+        const auto directory = GetFileAttributesW(path.c_str());
+        if (directory == INVALID_FILE_ATTRIBUTES || !(directory & FILE_ATTRIBUTE_DIRECTORY))
+            throw ServiceError(L"工作目录不存在，请选择有效目录。", ERROR_PATH_NOT_FOUND);
+    }
 }
 std::shared_ptr<IServiceManager> CreateNativeServiceManager() {
     return std::make_shared<detail::WindowsServices>();
@@ -181,6 +197,7 @@ ServiceInfo ReadRecord(SC_HANDLE service, HKEY parameters, const std::wstring &n
         Fail(L"无法读取服务状态");
     result.state = static_cast<ServiceState>(status.dwCurrentState);
     result.process_id = status.dwProcessId;
+    ReadAdvancedConfiguration(service, parameters, result);
     return result;
 }
 ScHandle OpenOwned(SC_HANDLE manager, const ServiceInfo &expected, DWORD access,

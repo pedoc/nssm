@@ -8,8 +8,8 @@ class MemoryServices final : public IServiceManager {
     explicit MemoryServices(std::wstring application, bool seed = true);
     ServiceSnapshot Read() override;
     ServiceInfo Read(const ServiceInfo &expected) override;
-    ServiceInfo Create(const ServiceConfiguration &configuration) override;
-    void Update(const ServiceInfo &expected, const ServiceConfiguration &configuration) override;
+    ServiceInfo Create(const ServiceConfiguration &configuration, const CredentialRequest &credentials = {}) override;
+    void Update(const ServiceInfo &expected, const ServiceConfiguration &configuration, const CredentialRequest &credentials = {}) override;
     void Remove(const ServiceInfo &expected) override;
     void Start(const ServiceInfo &expected) override;
     void Stop(const ServiceInfo &expected) override;

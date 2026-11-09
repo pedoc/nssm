@@ -6,6 +6,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "ServiceConfigurationFields.h"
+#include "ServiceCredentials.h"
 
 namespace nssm_next {
 constexpr std::uint32_t MANAGED_SCHEMA_VERSION = 1;
@@ -47,6 +49,15 @@ struct ServiceConfiguration {
     std::wstring working_directory;
     std::wstring description;
     StartupMode startup = StartupMode::Automatic;
+    LoginConfiguration login;
+    std::vector<std::wstring> dependencies;
+    ProcessConfiguration process;
+    ShutdownConfiguration shutdown;
+    ExitConfiguration exit;
+    IoConfiguration io;
+    RotationConfiguration rotation;
+    EnvironmentConfiguration environment;
+    HookConfiguration hooks;
 };
 
 struct ServiceInfo : ServiceConfiguration {
@@ -58,6 +69,8 @@ struct ServiceInfo : ServiceConfiguration {
     std::wstring account;
     ServiceState state = ServiceState::Stopped;
     std::uint32_t process_id = 0;
+    std::vector<RawConfigurationValue> raw_configuration;
+    std::vector<ConfigurationDiagnostic> diagnostics;
 };
 
 struct ServiceSnapshot {
@@ -70,8 +83,8 @@ class IServiceManager {
     virtual ~IServiceManager() = default;
     virtual ServiceSnapshot Read() = 0;
     virtual ServiceInfo Read(const ServiceInfo &expected) = 0;
-    virtual ServiceInfo Create(const ServiceConfiguration &configuration) = 0;
-    virtual void Update(const ServiceInfo &expected, const ServiceConfiguration &configuration) = 0;
+    virtual ServiceInfo Create(const ServiceConfiguration &configuration, const CredentialRequest &credentials = {}) = 0;
+    virtual void Update(const ServiceInfo &expected, const ServiceConfiguration &configuration, const CredentialRequest &credentials = {}) = 0;
     virtual void Remove(const ServiceInfo &expected) = 0;
     virtual void Start(const ServiceInfo &expected) = 0;
     virtual void Stop(const ServiceInfo &expected) = 0;

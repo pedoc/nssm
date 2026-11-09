@@ -25,6 +25,9 @@ foreach ($directory in @($sandbox, $bin, $working, $evidence)) {
     New-Item -ItemType Directory -Path $directory | Out-Null
 }
 Set-Content -LiteralPath (Join-Path $sandbox '.managed-service-test') -Value $token -NoNewline -Encoding utf8NoBOM
+# Low-privilege/virtual service identities need access only to this fresh test sandbox.
+& icacls.exe $sandbox /grant '*S-1-5-11:(OI)(CI)M' /T | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Cannot prepare the owned sandbox for service-identity tests.' }
 $program = Join-Path $bin 'NssmNext.IntegrationTests.exe'
 Copy-Item -LiteralPath (Join-Path $nextRoot 'out/Tests/NssmNext.IntegrationTests.exe') -Destination $program
 Copy-Item -LiteralPath (Join-Path $nextRoot 'out/x64/Release/NssmNext.ServiceHost.exe') -Destination (Join-Path $bin 'NssmNext.ServiceHost.exe')

@@ -4,6 +4,7 @@
 #include <iostream>
 
 using namespace nssm_next;
+unsigned RunAdvancedTests();
 namespace {
 unsigned checks = 0;
 void Check(bool condition, const char *message) {
@@ -42,8 +43,7 @@ ServiceInfo Owned() {
 void PolicyTests() {
     const auto normalized = NormalizeConfiguration(Configuration());
     Check(normalized.display_name == L"example", "display name defaults to service name");
-    Check(normalized.working_directory == L"C:\\Applications",
-          "directory defaults to application directory");
+    Check(normalized.working_directory.empty(), "empty directory preserves host automatic-directory semantics");
     Check(normalized.arguments == L"--value \"with spaces\"", "arguments retain quoting");
     Check(normalized.startup == StartupMode::Automatic, "automatic startup default");
     Check(SameConfiguration(normalized, normalized), "configuration equality");
@@ -78,7 +78,7 @@ void PolicyTests() {
     invalid.startup = static_cast<StartupMode>(99);
     Reject([&] { NormalizeConfiguration(invalid); }, "invalid startup accepted");
     invalid = normalized;
-    invalid.description.assign(4097, L'x');
+    invalid.description.assign(16383, L'x');
     Reject([&] { NormalizeConfiguration(invalid); }, "oversized description accepted");
     const auto unicode = NormalizeConfiguration(Configuration(L"测试服务"));
     Check(unicode.name == L"测试服务", "Unicode service name rejected");
@@ -173,6 +173,7 @@ int main() {
     try {
         PolicyTests();
         CrudTests();
+        RunAdvancedTests();
         std::cout
             << "PASS " << checks
             << " management policy and in-memory CRUD assertions; no Windows service API linked\n";

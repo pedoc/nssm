@@ -4,6 +4,7 @@
 int NssmLegacyMain(int argc, wchar_t **argv);
 void WINAPI service_main(unsigned long argc, wchar_t **argv);
 void RegisterNextEventMessages() noexcept;
+extern bool is_admin;
 
 // The legacy entry point otherwise rewrites the machine-global NSSM source.
 // Its calls are renamed only for the experimental Core build, not in root sources.
@@ -13,7 +14,7 @@ int NssmNextSkipLegacyMessages() {
 
 void WINAPI NssmNextServiceMain(unsigned long argc, wchar_t **argv) {
     // Only the actual SCM callback performs our separate event-source registration.
-    RegisterNextEventMessages();
+    if (is_admin) RegisterNextEventMessages();
     service_main(argc, argv);
 }
 

@@ -2,7 +2,9 @@
 #include "MainWindow.g.h"
 #include "../Core/NativeServices.h"
 #include <optional>
+#include <vector>
 
+namespace nssm_next::ui { struct ServiceEditor; }
 namespace winrt::NssmNext::implementation {
 struct MainWindow : MainWindowT<MainWindow> {
     MainWindow();
@@ -36,7 +38,15 @@ struct MainWindow : MainWindowT<MainWindow> {
         Restart,
         Remove
     };
+    struct ServiceRow {
+        Microsoft::UI::Xaml::Controls::Button start{nullptr}, stop{nullptr}, restart{nullptr};
+        Microsoft::UI::Xaml::Controls::Button edit{nullptr}, remove{nullptr};
+        nssm_next::ServiceState state;
+        nssm_next::StartupMode startup;
+    };
+    std::vector<ServiceRow> m_rows;
     std::shared_ptr<nssm_next::IServiceManager> m_manager;
+    std::shared_ptr<nssm_next::ui::ServiceEditor> m_editor;
     nssm_next::ServiceSnapshot m_snapshot;
     std::wstring m_selected;
     HWND m_owner = nullptr;
@@ -47,14 +57,18 @@ struct MainWindow : MainWindowT<MainWindow> {
     bool m_closed = false;
     winrt::fire_and_forget Refresh(std::wstring message = {});
     winrt::fire_and_forget ShowEditor(bool isNew);
+    winrt::fire_and_forget SaveEditor(std::shared_ptr<nssm_next::ui::ServiceEditor> editor, nssm_next::ServiceInfo expected, bool isNew);
     winrt::fire_and_forget Execute(Action action);
     winrt::fire_and_forget Elevate();
     Windows::Foundation::IAsyncOperation<bool> EnsureWriteAccess();
     std::optional<nssm_next::ServiceInfo> Selected();
+    bool SelectService(const std::wstring &key);
     void RenderServices();
-    void RenderDetails();
     void UpdateControls();
     void SetBusy(bool busy, bool mutating = false);
+    void ShowStatus(const std::wstring &message,
+                    Microsoft::UI::Xaml::Controls::InfoBarSeverity severity =
+                        Microsoft::UI::Xaml::Controls::InfoBarSeverity::Informational);
     void ShowError(const std::wstring &message);
 };
 } // namespace winrt::NssmNext::implementation

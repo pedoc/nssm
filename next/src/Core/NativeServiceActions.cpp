@@ -1,4 +1,6 @@
 #include "NativeServicesInternal.h"
+#include "NativeConfigurationStore.h"
+#include "NativeServiceAccounts.h"
 #include <array>
 #include <chrono>
 #include <limits>
@@ -49,8 +51,12 @@ DWORD NativeStartup(StartupMode mode) {
     return SERVICE_AUTO_START;
 }
 void Configure(SC_HANDLE service, const ServiceConfiguration &configuration) {
+    std::vector<wchar_t> dependencies;
+    for (const auto &name : configuration.dependencies) { dependencies.insert(dependencies.end(), name.begin(), name.end()); dependencies.push_back(0); }
+    if (dependencies.empty()) dependencies.push_back(0);
+    dependencies.push_back(0);
     if (!ChangeServiceConfigW(service, SERVICE_NO_CHANGE, NativeStartup(configuration.startup),
-                              SERVICE_NO_CHANGE, nullptr, nullptr, nullptr, nullptr, nullptr,
+                              SERVICE_NO_CHANGE, nullptr, nullptr, nullptr, dependencies.data(), nullptr,
                               nullptr, configuration.display_name.c_str()))
         Fail(L"无法保存服务名称或启动类型");
     SERVICE_DESCRIPTIONW description{const_cast<wchar_t *>(configuration.description.c_str())};
@@ -113,7 +119,7 @@ void StopAndWait(SC_HANDLE service) {
     WaitState(service, SERVICE_STOPPED, deadline);
 }
 } // namespace
-ServiceInfo WindowsServices::Create(const ServiceConfiguration &configuration) {
+ServiceInfo WindowsServices::Create(const ServiceConfiguration &configuration, const CredentialRequest &credentials) {
     const auto normalized = NormalizeConfiguration(configuration);
     ValidateApplicationFiles(normalized);
     MutationGuard mutation;
@@ -124,7 +130,9 @@ ServiceInfo WindowsServices::Create(const ServiceConfiguration &configuration) {
         throw ServiceError(L"同名服务已存在，未覆盖现有服务。", ERROR_SERVICE_EXISTS);
     if (GetLastError() != ERROR_SERVICE_DOES_NOT_EXIST)
         Fail(L"无法确认服务名是否可用");
+    const auto account = PrepareAccountChange(normalized, nullptr, credentials);
     const auto host = DeployServiceHost(sourceHost);
+    PreparePrivateEventSource(host);
     const auto binary = ServiceHostCommandLine(host);
     GUID guid{};
     const auto guidResult = CoCreateGuid(&guid);
@@ -133,6 +141,12 @@ ServiceInfo WindowsServices::Create(const ServiceConfiguration &configuration) {
     std::array<wchar_t, 40> identity{};
     if (!StringFromGUID2(guid, identity.data(), static_cast<int>(identity.size())))
         Fail(L"无法生成服务标识", ERROR_INVALID_DATA);
+    ServiceInfo result;
+    static_cast<ServiceConfiguration &>(result) = normalized;
+    result.managed_by = L"NssmNext"; result.schema = MANAGED_SCHEMA_VERSION;
+    result.instance_id = identity.data(); result.revision = 1; result.binary_path = binary;
+    result.account = account.name; result.login = ReadLoginConfiguration(account.name, normalized.name);
+    bool rightAdded = false;
     ScHandle service(
         CreateServiceW(manager.get(), normalized.name.c_str(), normalized.display_name.c_str(),
                        SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_CHANGE_CONFIG | DELETE,
@@ -148,8 +162,13 @@ ServiceInfo WindowsServices::Create(const ServiceConfiguration &configuration) {
         WriteDword(parameters.get(), L"NssmNextSchema", MANAGED_SCHEMA_VERSION);
         WriteQword(parameters.get(), L"NssmNextRevision", 1);
         WriteString(parameters.get(), L"NssmNextOwner", L"NssmNext");
-        ApplicationValues(parameters.get(), normalized);
+        ConfigurationJournal journal(parameters.get());
+        journal.Apply(nullptr, normalized);
         Configure(service.get(), normalized);
+        result.raw_configuration = ReadConfigurationValues(normalized.name, parameters.get());
+        rightAdded = PrepareServiceLogonRight(account);
+        CommitServiceAccount(service.get(), account, credentials);
+        // No fallible configuration write follows the credential commit.
     } catch (const ServiceError &error) {
         if (!DeleteService(service.get())) {
             const auto cleanup = GetLastError();
@@ -157,6 +176,7 @@ ServiceInfo WindowsServices::Create(const ServiceConfiguration &configuration) {
                                    normalized.name + L"（" + std::to_wstring(cleanup) + L"）。",
                                error.code);
         }
+        if (rightAdded) throw ServiceError(error.message + L"；本次已授予账户服务登录权限，未盲目撤销该全局权限。", error.code);
         throw;
     } catch (...) {
         const bool removed = DeleteService(service.get()) != FALSE;
@@ -164,18 +184,10 @@ ServiceInfo WindowsServices::Create(const ServiceConfiguration &configuration) {
             throw ServiceError(L"创建中发生异常，且新建服务清理失败：" + normalized.name);
         throw;
     }
-    ServiceInfo result;
-    static_cast<ServiceConfiguration &>(result) = normalized;
-    result.managed_by = L"NssmNext";
-    result.schema = MANAGED_SCHEMA_VERSION;
-    result.instance_id = identity.data();
-    result.revision = 1;
-    result.binary_path = binary;
-    result.account = L"LocalSystem";
     return result;
 }
 void WindowsServices::Update(const ServiceInfo &expected,
-                             const ServiceConfiguration &configuration) {
+                             const ServiceConfiguration &configuration, const CredentialRequest &credentials) {
     const auto normalized = NormalizeConfiguration(configuration);
     if (normalized.name != expected.name)
         throw ServiceError(L"编辑时不能更改服务名。");
@@ -185,39 +197,36 @@ void WindowsServices::Update(const ServiceInfo &expected,
     RegHandle parameters(nullptr, &RegCloseKey);
     ServiceInfo actual;
     auto service = OpenOwned(manager.get(), expected, SERVICE_CHANGE_CONFIG,
-                             KEY_READ | KEY_SET_VALUE, parameters, actual);
+                             KEY_READ | KEY_WRITE, parameters, actual);
     RequireSameService(expected, actual, true);
     if (actual.revision == (std::numeric_limits<std::uint64_t>::max)())
         throw ServiceError(L"服务配置版本无效。");
-    const std::array<SavedValue, 4> values{{Capture(parameters.get(), L"Application"),
-                                            Capture(parameters.get(), L"AppParameters"),
-                                            Capture(parameters.get(), L"AppDirectory"),
-                                            Capture(parameters.get(), L"NssmNextRevision")}};
+    const auto account = PrepareAccountChange(normalized, &actual, credentials);
+    const auto revision = Capture(parameters.get(), L"NssmNextRevision");
+    ConfigurationJournal journal(parameters.get());
+    bool rightAdded = false;
     const auto rollback = [&]() {
-        bool restored = true;
-        for (const auto &value : values) {
-            try {
-                Restore(parameters.get(), value);
-            } catch (...) {
-                restored = false;
-            }
-        }
-        try {
-            Configure(service.get(), actual);
-        } catch (...) {
-            restored = false;
-        }
+        bool restored = journal.Rollback();
+        try { Restore(parameters.get(), revision); } catch (...) { restored = false; }
+        try { Configure(service.get(), actual); } catch (...) { restored = false; }
         return restored;
     };
     try {
         Configure(service.get(), normalized);
-        ApplicationValues(parameters.get(), normalized);
+        journal.Apply(&actual, normalized);
         WriteQword(parameters.get(), L"NssmNextRevision", actual.revision + 1);
+        if (account.change) {
+            const auto quote = actual.binary_path.find(L'"', 1);
+            const auto host = actual.binary_path.substr(1, quote - 1);
+            EnsureServiceHostAccess(host);
+            PreparePrivateEventSource(host);
+        }
+        rightAdded = PrepareServiceLogonRight(account);
+        CommitServiceAccount(service.get(), account, credentials);
     } catch (const ServiceError &error) {
         const auto restored = rollback();
-        throw ServiceError(error.message + (restored ? L"；已恢复原配置。"
-                                                     : L"；原配置未能完全恢复，请刷新检查。"),
-                           error.code);
+        throw ServiceError(error.message + (restored ? L"；已恢复原配置。" : L"；原配置未能完全恢复，请刷新检查。") +
+            (rightAdded ? L" 本次新增的服务登录权限可能仍保留，未自动撤销全局权限。" : L""), error.code);
     } catch (...) {
         if (!rollback())
             throw ServiceError(L"保存发生异常，且原配置未能完全恢复，请刷新检查。");

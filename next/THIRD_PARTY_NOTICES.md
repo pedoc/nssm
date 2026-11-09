@@ -2,6 +2,8 @@
 
 The native WinUI project layout and HybridCRT configuration follow Microsoft WindowsAppSDK-Samples and WindowsAppSDK. The window-capture test follows the capture sequence from robmikh/Win32CaptureSample. These references are MIT-licensed; the original NSSM source retains its existing Public Domain notices.
 
+The MIT notice below covers the referenced sample code, not every redistributed runtime binary. Release ZIPs also include a `licenses/` directory containing the actual LICENSE and NOTICE files from their pinned NuGet packages; those package-specific terms apply to the corresponding binaries.
+
 - https://github.com/microsoft/WindowsAppSDK-Samples
 - https://github.com/microsoft/WindowsAppSDK/blob/v2.6.5/HybridCRT.props
 - https://github.com/robmikh/Win32CaptureSample

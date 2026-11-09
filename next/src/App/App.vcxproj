@@ -89,6 +89,11 @@
     <ClCompile Include="MainWindow.xaml.cpp"><DependentUpon>MainWindow.xaml</DependentUpon></ClCompile>
     <ClCompile Include="MainWindow.Actions.cpp" />
     <ClCompile Include="ServiceEditor.cpp" />
+    <ClCompile Include="ServiceEditorPages\EditorPages.cpp" />
+    <ClCompile Include="ServiceEditorPages\BasicPages.cpp" />
+    <ClCompile Include="ServiceEditorPages\ProcessPages.cpp" />
+    <ClCompile Include="ServiceEditorPages\OutputPages.cpp" />
+    <ClCompile Include="ServiceEditorPages\EnvironmentHooksPages.cpp" />
     <ClCompile Include="Version.cpp" />
     <ClCompile Include="..\..\tests\Fakes\MemoryServices.cpp" Condition="'$(NssmNextUiTestBackend)' == 'true'" />
     <ClInclude Include="ServiceEditor.h" />

@@ -1,4 +1,5 @@
 #include "ServicePolicy.h"
+#include "ServiceConfigurationCodec.h"
 #include <algorithm>
 #include <cwctype>
 
@@ -7,7 +8,8 @@ constexpr std::size_t MAX_NAME = 256;
 constexpr std::size_t MAX_PATH_TEXT = 32766;
 constexpr std::size_t MAX_DIRECTORY = 32755;
 constexpr std::size_t MAX_COMMAND = 32766;
-constexpr std::size_t MAX_DESCRIPTION = 4096;
+constexpr std::size_t MAX_DESCRIPTION = 16382;
+constexpr std::size_t MAX_ARGUMENTS = 16382;
 
 bool HasNull(const std::wstring &text) {
     return text.find(L'\0') != std::wstring::npos;
@@ -23,6 +25,14 @@ bool LocalPath(const std::wstring &path) {
             ch == L'*' || (ch == L':' && i != 1))
             return false;
     }
+    return true;
+}
+bool ConfigurablePath(const std::wstring &path) {
+    if (LocalPath(path)) return true;
+    if (path.empty() || path.front() != L'%') return false;
+    const auto close = path.find(L'%', 1);
+    if (close == std::wstring::npos || close == 1) return false;
+    for (const auto ch : path) if (ch < 32 || ch == L'"' || ch == L'<' || ch == L'>' || ch == L'|' || ch == L'?' || ch == L'*') return false;
     return true;
 }
 bool ValidGuid(const std::wstring &value) {
@@ -75,28 +85,25 @@ ServiceConfiguration NormalizeConfiguration(const ServiceConfiguration &input) {
         result.display_name = result.name;
     if (result.display_name.size() > MAX_NAME || HasNull(result.display_name))
         throw ServiceError(L"显示名称不能超过 256 个字符或包含空字符。");
-    if (!LocalPath(result.application) || result.application.size() > MAX_PATH_TEXT)
-        throw ServiceError(L"请填写不带引号的本地可执行文件完整路径。");
-    if (HasNull(result.arguments) ||
+    if (!ConfigurablePath(result.application) || result.application.size() > MAX_PATH_TEXT)
+        throw ServiceError(L"请填写不带引号的完整程序路径，可使用服务环境中的 %变量%。");
+    if (HasNull(result.arguments) || result.arguments.size() > MAX_ARGUMENTS ||
         result.application.size() + result.arguments.size() + 3 > MAX_COMMAND)
-        throw ServiceError(L"参数包含空字符，或完整命令行超过 Windows 长度限制。");
-    if (result.working_directory.empty()) {
-        const auto slash = result.application.find_last_of(L"\\/");
-        result.working_directory = result.application.substr(0, slash == 2 ? 3 : slash);
-    }
-    if (!LocalPath(result.working_directory) || result.working_directory.size() > MAX_DIRECTORY)
-        throw ServiceError(L"工作目录必须为有效的本地完整目录路径。");
+        throw ServiceError(L"参数包含空字符、超过宿主的 16382 字符限制，或完整命令行过长。");
+    if ((!result.working_directory.empty() && !ConfigurablePath(result.working_directory)) || result.working_directory.size() > MAX_DIRECTORY)
+        throw ServiceError(L"工作目录须为完整路径或服务环境路径；留空表示程序所在目录。");
     if (result.description.size() > MAX_DESCRIPTION || HasNull(result.description))
-        throw ServiceError(L"描述不能超过 4096 个字符或包含空字符。");
+        throw ServiceError(L"描述不能超过 16382 个字符或包含空字符。");
     if (static_cast<std::uint32_t>(result.startup) >
         static_cast<std::uint32_t>(StartupMode::Disabled))
         throw ServiceError(L"无效的服务启动类型。");
+    ValidateAdvancedConfiguration(result);
     return result;
 }
 bool SameConfiguration(const ServiceConfiguration &a, const ServiceConfiguration &b) {
     return a.name == b.name && a.display_name == b.display_name && a.application == b.application &&
            a.arguments == b.arguments && a.working_directory == b.working_directory &&
-           a.description == b.description && a.startup == b.startup;
+           a.description == b.description && a.startup == b.startup && SameAdvancedConfiguration(a, b);
 }
 bool IsManagedService(const ServiceInfo &service) noexcept {
     try {
@@ -115,7 +122,8 @@ void RequireSameService(const ServiceInfo &expected, const ServiceInfo &actual,
         expected.binary_path != actual.binary_path)
         throw ServiceError(L"服务归属或宿主路径已改变，请刷新后重试。", STALE_SERVICE);
     if (configuration &&
-        (expected.revision != actual.revision || !SameConfiguration(expected, actual)))
+        (expected.revision != actual.revision || !SameConfiguration(expected, actual) ||
+         !SameRawConfiguration(expected.raw_configuration, actual.raw_configuration)))
         throw ServiceError(L"配置已被其他进程修改，请刷新后重新编辑。", STALE_SERVICE);
 }
 std::wstring ServiceHostCommandLine(const std::wstring &executable) {

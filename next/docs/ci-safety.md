@@ -1,13 +1,25 @@
-# Service manager CI safety
+# Service manager CI and release safety
 
-The user explicitly authorized committing/pushing this feature only to `feat/winui3-unified-prototype` and exercising real CRUD/control for unique temporary NssmNext services on a disposable GitHub-hosted Windows runner. This does not authorize local service mutation, main merge, tags, Release or Scoop publication.
+## Current scope — 2026-11-09
 
-The workflow builds GUI/native-host binaries, runs policy/routing/source checks, then invokes `run-managed-integration.ps1`. Both that script and the native integration program reject execution unless GitHub-hosted Windows, repository/ref/run ID, prepared RUNNER_TEMP sandbox and elevation checks match. Guards prevent accidents, not malicious environment spoofing; never fake them locally.
+The user requested README screenshots, an automatic build/Release pipeline, and commit/push of the current feature. Changes stay on `feat/winui3-unified-prototype`; no main merge or Scoop publication is included. Branch pushes build artifacts only. A separate, deliberately pushed `next-v*` version tag triggers the Next prerelease pipeline; legacy `v*` tags and `.github/workflows/build.yml` remain untouched.
 
-Real test operations use only a generated `NssmNextMgmtCI_<runid>_<nonce>` service name. Ownership-marker fault probes verify instance GUID and ImagePath on an open service object before writing. Failure attempts removal only through the known managed identity; cleanup failure remains a failed run bounded by VM teardown. Service application/host files outside the test's own deployment are not deleted.
+## Build and packaging
 
-The probe verifies owned listing, duplicate/stale/concurrent-write rejection, LocalSystem execution, spaced arguments/CWD, native target restart, stop/start and actual SCM deletion. It compares the legacy NSSM event-source snapshot to ensure it was not rewritten. Private NssmNext event registration and protected host cache live only on the disposable VM during this test.
+`next-release.yml` builds the production GUI and native host on GitHub-hosted Windows, runs source/safety contracts and routing/memory-only configuration checks, then invokes `package.ps1`. This pipeline never launches a GUI or creates a service. It packages the complete production runtime, resources, documentation and package licences, excluding test/debug/build outputs. x64 PE/subsystem checks and ZIP-entry SHA256 verification run before artifact upload.
 
-Workflow permissions are contents-read-only, checkout credentials are not persisted, and evidence upload is limited to native test logs/markers/result JSON with seven-day retention. No release action or legacy Reference/service-smoke gate is used. A skipped job is not success evidence.
+The build job has contents-read-only permissions and does not persist checkout credentials. Only the tag-gated release job has contents-write permission and a token-bearing step. That job creates a draft without overwriting existing assets, downloads and verifies its checksums, then publishes a prerelease with `latest=false` and verifies public downloads. Failed draft recovery remains an explicit action, not an automatic delete/recreate loop.
 
-Local verification remains memory-only for writes and read-only for the production GUI. A prior shell-capable reviewer violated that boundary; its disclosed, user-approved recovery is retained in validation.md. Later reviews were explicitly read-only and their executed scope was reported.
+## Isolated real-service integration
+
+The earlier explicit authorization to exercise real CRUD/control for unique temporary NssmNext services remains limited to a disposable GitHub-hosted Windows runner on the experimental branch. `next-compat.yml`, `run-managed-integration.ps1` and the native integration program retain their repository/ref/run ID, prepared RUNNER_TEMP sandbox and elevation guards. Tags, pull requests, local runs and self-hosted runners cannot enter this path. Guards prevent accidents, not malicious environment spoofing; never fake them locally.
+
+Real test operations use only a generated `NssmNextMgmtCI_<runid>_<nonce>` name. Ownership-marker fault probes verify instance GUID and ImagePath before writing. Failure attempts removal only through the known managed identity; cleanup failure remains a failed run bounded by VM teardown. Service application/host files outside the test's own deployment are not deleted. Private NssmNext registration and protected host cache live only on that disposable VM.
+
+The probe covers owned listing, duplicate/stale/concurrent-write rejection, account/configuration behavior, arguments/CWD, restart, stop/start and actual SCM deletion. It compares the legacy NSSM event source to ensure it was not rewritten. Its evidence upload is limited to test logs/markers/result JSON with seven-day retention. This integration workflow remains contents-read-only and cannot publish releases.
+
+## Local documentation and manual acceptance
+
+The two README screenshots are taken by `capture-docs.ps1` from a freshly spawned, separately compiled memory-only UI. The script verifies the binary path, memory title, PID and native editor-owner relationship, opens only the blank application page, and captures only owned HWNDs. It never saves configuration, opens credentials or operates real services. Captures were visually inspected; this is documentation evidence, not a claim of complete advanced-feature acceptance.
+
+Routine UI acceptance remains manual at the user's request. Local verification never authorizes real service CRUD, UAC elevation, ACL repair, registry changes or new accounts. A prior shell-capable reviewer violated that boundary; the disclosed, user-approved recovery remains recorded in validation.md. Historical authorization/validation records must not be erased or reinterpreted as blanket permission.

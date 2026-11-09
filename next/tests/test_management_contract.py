@@ -23,15 +23,17 @@ def definitions_for(filename: str) -> str:
 class ManagementContracts(unittest.TestCase):
     def test_gui_has_all_management_actions(self) -> None:
         text = (APP / "MainWindow.xaml").read_text(encoding="utf-8")
+        rows = (APP / "MainWindow.xaml.cpp").read_text(encoding="utf-8")
+        self.assertIn('x:Name="NewButton"', text)
         for name in (
-            "NewButton",
             "EditButton",
             "DeleteButton",
             "StartButton",
             "StopButton",
             "RestartButton",
         ):
-            self.assertIn(f'x:Name="{name}"', text)
+            self.assertIn(f'L"{name}"', rows)
+        self.assertIn("SelectService(key)", rows)
         self.assertNotIn("只读原型", text)
         self.assertIn('x:Name="EmptyState"', text)
 

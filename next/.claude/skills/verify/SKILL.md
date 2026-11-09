@@ -1,43 +1,43 @@
 ---
 name: verify
-description: Build and drive the native WinUI service manager safely using a separate in-memory UI backend; capture screenshots and observations without touching real local services.
+description: Build the native WinUI manager and check safe packaging; capture memory-only documentation screenshots when requested, leaving UI acceptance to the user.
 ---
 
-# NssmNext runtime verification
+# NssmNext verification and handoff
 
-Run from the repository root in Git Bash, invoking written PowerShell scripts via `pwsh -NoProfile -File`.
+Run written PowerShell scripts from the repository root with `pwsh -NoProfile -File` in Git Bash.
 
-## Full management UI — safe local surface
+## Default scope
 
-1. Build the separate test UI (this also builds the native host but does not run/register it):
-   `pwsh -NoProfile -File next/build/build.ps1 -Project App -UiTestBackend`
-2. Drive the actual window:
-   `pwsh -NoProfile -File next/build/inspect-management-ui.ps1`
-3. Read the emitted `EVIDENCE=` directory. Open its PNGs and `observations.json`; UI Automation success alone is not visual acceptance.
+The user prefers implementation, necessary compilation and a handoff for manual UI acceptance. Do not spend time driving every editor page, repeatedly taking acceptance screenshots, or debugging the legacy full-UI drivers. Compilation and passing contracts are not claims that every native service behavior has been accepted.
 
-The driver exercises owned-only listing, filtering, required-field errors, create, edit, duplicate-name rejection, start/stop/restart, cancel deletion and confirmed deletion. All writes are to the process-local memory backend. It checks the executable is under `next/out/UiTests/` and the window explicitly says `内存测试模式` before invoking any write button.
+Before a code commit, confirm the current source has built successfully. For CI/release changes, also run the non-mutating source/release contracts, script parser, routing/memory-only tests and package verification. Reuse successful results from the current unchanged code rather than repeating long builds solely for ceremony.
 
-The production build has no runtime switch to enable this backend. `-UiTestBackend` is a build-time option with a separate output directory; screenshots must visibly show the memory-test banner.
+- Build normal app/host: `pwsh -NoProfile -File next/build/build.ps1 -Project App`
+- Source/release contracts: `python -IB -m pytest -q -p no:cacheprovider next/tests`
+- Script parser: `pwsh -NoProfile -File next/build/check-syntax.ps1`
+- Router: build `-Project Router`, then `next/out/Tests/RouterTests.exe`.
+- Memory policy/codec: build `-Project Management`, then `next/out/Tests/ManagementTests.exe`.
+- Package: `pwsh -NoProfile -File next/build/package.ps1 -Version snapshot-check -OutputDirectory next/out/package-check-new`
 
-## Production GUI — read-only local surface
+Use a new output directory; the packager deliberately refuses to overwrite an existing one. It copies only the canonical production runtime, includes resources/licences, excludes test/debug outputs and verifies ZIP-entry hashes. It does not launch the packaged program.
 
-Build: `pwsh -NoProfile -File next/build/build.ps1 -Project App`
+## Documentation screenshots — only when requested
 
-Drive only startup, refresh, search/clear, selection and normal close:
-`pwsh -NoProfile -File next/build/smoke-ui.ps1`
+1. Build `-Project App -UiTestBackend` and `-Project Capture` using `next/build/build.ps1`.
+2. Run `pwsh -NoProfile -File next/build/capture-docs.ps1 -OutputDirectory next/out/readme-images-new` with a new empty output path.
+3. Open both PNGs and inspect them. A blank image is not evidence. Only then copy them to `next/docs/images/` and accurately label the screenshots as memory-only examples.
 
-The default/no-argument route opens the GUI; `-ExplicitUi` verifies its `--ui` alias. Only the process started by the driver may be closed. No name-based process sweep.
+The capture script checks the dedicated UiTests path, spawned PID, memory title/banner and native editor-owner relationship. It opens only the list and blank application page; it does not save or open credentials. It captures the owned HWND with `CaptureWindow.exe`, not unrelated desktop content. Only its own spawned process may be closed.
 
-## Runtime capture
-
-The memory driver captures the owned HWND using `next/out/Tests/CaptureWindow.exe` when available, otherwise its foreground window region. Capture helper build: `pwsh -NoProfile -File next/build/build.ps1 -Project Capture`.
-
-Look at the images. A blank capture is not visual proof; retain raw output and report the limitation rather than inferring pixels from the accessibility tree.
+The memory backend is compile-time-only, lives under `out/UiTests`, and cannot be enabled through a production runtime switch. The legacy `inspect-management-ui.ps1` / `inspect-full-editor.ps1` drivers may target old layouts; they are not default acceptance gates.
 
 ## Hard boundaries
 
 - Never install, edit, start, stop or delete real local services as a verification probe. Never elevate for local verification.
-- Never invoke the old NSSM CLI to set up fixtures. Real GUI operations use the native owned-service API, not legacy CLI forwarding.
-- The service host only accepts its internal `--service` mode; do not launch that mode manually for local testing.
-- Actual SCM/LocalSystem/host-deployment integration needs explicit authorization for a disposable environment. Memory UI success does not prove it.
-- No automatic commit/push, Release, Scoop change or registration repair is part of verification.
+- Never adjust local ACLs, registry entries or accounts as a verification workaround.
+- Never invoke old NSSM mutating CLI commands or manually start the service host's internal `--service` mode.
+- Real SCM/LocalSystem/deployment integration remains limited to the separately authorized disposable GitHub-hosted experimental-branch runner; never spoof its guards locally.
+- Password values must not be read, logged or captured in screenshots.
+- Commit/push, tags, Release, Scoop or repair actions require user authorization outside this skill. A branch push does not itself authorize choosing and publishing a version tag.
+- Report what ran, what passed, and what remains for manual acceptance. Retain the disclosed historical incident/recovery record.

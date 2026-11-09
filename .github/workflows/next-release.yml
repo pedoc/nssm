@@ -1,0 +1,154 @@
+name: NSSM Next build and release
+
+on:
+  push:
+    branches: [feat/winui3-unified-prototype, main]
+    tags: ['next-v*']
+    paths:
+      - 'next/**'
+      - '.github/workflows/next-*.yml'
+      - 'README.md'
+  pull_request:
+    paths:
+      - 'next/**'
+      - '.github/workflows/next-*.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: next-release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    name: Build, test and package WinUI x64
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Preserve production-file bytes during checkout
+        run: git config --global core.autocrlf false
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate Next tag namespace and engine version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if ($env:REF_TYPE -eq 'tag') {
+            if ($env:REF_NAME -cnotmatch '^next-v([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$') {
+              throw 'Use next-vX.Y.Z or next-vX.Y.Z-preview.N; legacy v* tags are separate.'
+            }
+            $version = $Matches[1]
+            $header = Get-Content -LiteralPath version.h -Raw
+            if ($header -notmatch 'NSSM_VERSION _T\("([0-9.]+)"\)') { throw 'Cannot read engine version.' }
+            if ($version -cne $Matches[1]) { throw 'Next tag numeric version must match version.h.' }
+          }
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned validation tools
+        run: python -m pip install --disable-pip-version-check -r next/tests/requirements.txt
+      - name: Check source and release contracts
+        run: |
+          python -m black --check next/tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m ruff check --no-cache next/tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -IB -m pytest -q -p no:cacheprovider next/tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pwsh -NoProfile -File next/build/check-syntax.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build production GUI and native host
+        run: pwsh -NoProfile -File next/build/build.ps1 -Project App
+      - name: Run routing and memory-only configuration tests
+        run: |
+          pwsh -NoProfile -File next/build/build.ps1 -Project Router
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./next/out/Tests/RouterTests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pwsh -NoProfile -File next/build/build.ps1 -Project Management
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./next/out/Tests/ManagementTests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Stage complete runtime and verify archive contents
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $version = if ($env:REF_TYPE -eq 'tag') { $env:REF_NAME.Substring(6) } else { 'snapshot-' + $env:GITHUB_SHA.Substring(0, 12) }
+          ./next/build/package.ps1 -Version $version -Commit $env:GITHUB_SHA -OutputDirectory next/out/release
+      - name: Upload runtime ZIP and checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: nssm-next-win-x64-${{ github.sha }}
+          path: |
+            next/out/release/*.zip
+            next/out/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish verified Next prerelease
+    needs: build
+    if: github.repository == 'pedoc/nssm' && startsWith(github.ref, 'refs/tags/next-v') && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Download this commit's verified runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: nssm-next-win-x64-${{ github.sha }}
+          path: dist
+      - name: Verify downloaded artifact checksums
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          sha256sum --check SHA256SUMS.txt
+          shopt -s nullglob
+          archives=(./*.zip)
+          test "${#archives[@]}" -eq 1
+      - name: Create draft, verify assets and publish prerelease
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" ./*.zip SHA256SUMS.txt \
+            --draft --prerelease --latest=false --verify-tag --generate-notes \
+            --title "NSSM Next ${RELEASE_TAG#next-v}"
+          verify_dir=$(mktemp -d)
+          gh release download "$RELEASE_TAG" --dir "$verify_dir" \
+            --pattern 'NssmNext-*-win-x64.zip' --pattern SHA256SUMS.txt
+          (cd "$verify_dir" && sha256sum --check SHA256SUMS.txt)
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+      - name: Verify public release downloads
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          verify_dir=$(mktemp -d)
+          for asset in ./*.zip SHA256SUMS.txt; do
+            name=$(basename "$asset")
+            curl --fail --location --retry 5 --retry-delay 3 --retry-all-errors \
+              --output "$verify_dir/$name" \
+              "https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/$name"
+          done
+          (cd "$verify_dir" && sha256sum --check SHA256SUMS.txt)
+          printf 'Next prerelease verified: https://github.com/%s/releases/tag/%s\n' \
+            "$GH_REPO" "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"

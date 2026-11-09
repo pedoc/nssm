@@ -1,5 +1,6 @@
 #include "MemoryServices.h"
 #include "../../src/Core/ServicePolicy.h"
+#include "../../src/Core/ServiceConfigurationCodec.h"
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
@@ -48,8 +49,10 @@ ServiceInfo MemoryServices::Read(const ServiceInfo &expected) {
     std::lock_guard<std::mutex> lock(mutex);
     return Find(expected);
 }
-ServiceInfo MemoryServices::Create(const ServiceConfiguration &configuration) {
+ServiceInfo MemoryServices::Create(const ServiceConfiguration &configuration, const CredentialRequest &credentials) {
     const auto normalized = NormalizeConfiguration(configuration);
+    if (normalized.login.kind == AccountKind::Custom && (!credentials.password_supplied || credentials.password.Empty()))
+        throw ServiceError(L"新建自定义账户服务时必须提供密码。");
     std::lock_guard<std::mutex> lock(mutex);
     for (const auto &record : records) {
         if (record.name == normalized.name)
@@ -66,18 +69,22 @@ ServiceInfo MemoryServices::Create(const ServiceConfiguration &configuration) {
     result.revision = 1;
     result.binary_path = ServiceHostCommandLine(
         L"C:\\Program Files\\NssmNext\\ServiceHosts\\memory\\NssmNext.ServiceHost.exe");
-    result.account = L"LocalSystem";
+    result.account = AccountName(normalized.login, normalized.name);
     records.push_back(result);
     return result;
 }
 void MemoryServices::Update(const ServiceInfo &expected,
-                            const ServiceConfiguration &configuration) {
+                            const ServiceConfiguration &configuration, const CredentialRequest &credentials) {
     const auto normalized = NormalizeConfiguration(configuration);
     if (normalized.name != expected.name)
         throw ServiceError(L"不能在编辑时更改服务名。");
     std::lock_guard<std::mutex> lock(mutex);
     auto &record = Find(expected, true);
+    const auto account = AccountName(normalized.login, normalized.name);
+    if (normalized.login.kind == AccountKind::Custom && account != record.account && (!credentials.password_supplied || credentials.password.Empty()))
+        throw ServiceError(L"更改为自定义账户时必须提供密码。");
     static_cast<ServiceConfiguration &>(record) = normalized;
+    record.account = account;
     ++record.revision;
 }
 void MemoryServices::Remove(const ServiceInfo &expected) {

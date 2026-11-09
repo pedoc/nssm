@@ -4,6 +4,7 @@
 #include <windows.h>
 #include "../../src/Core/NativeServices.h"
 #include "../../src/Core/ServicePolicy.h"
+#include "../../src/Core/ServiceConfigurationCodec.h"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -226,6 +227,28 @@ int wmain(int argc, wchar_t **argv) {
         configuration.working_directory = root + L"\\working with spaces";
         configuration.description = L"Disposable hosted-runner service only";
         configuration.startup = StartupMode::Manual;
+        configuration.process.priority = BELOW_NORMAL_PRIORITY_CLASS;
+        DWORD_PTR allowed = 0, system = 0;
+        if (!GetProcessAffinityMask(GetCurrentProcess(), &allowed, &system)) throw std::runtime_error("Cannot read test CPU availability");
+        unsigned cpu = 0; while (cpu < 63 && !(allowed & (DWORD_PTR{1} << cpu))) ++cpu;
+        configuration.process.affinity = std::to_wstring(cpu);
+        configuration.shutdown.console_ms = 750; configuration.shutdown.window_ms = 750; configuration.shutdown.threads_ms = 750;
+        configuration.exit.restart_ms = 250; configuration.exit.throttle_ms = 100;
+        configuration.io.output.path = root + L"\\stdout.log"; configuration.io.error.path = root + L"\\stderr.log";
+        configuration.io.timestamp = true;
+        configuration.rotation.enabled = true; configuration.rotation.online = true;
+        configuration.rotation.larger_than_bytes = (std::uint64_t{1} << 32) | 1024;
+        configuration.environment.replacement_present = true;
+        configuration.environment.replacement = {L"SystemRoot=" + Env(L"SystemRoot"), L"PATH=" + Env(L"PATH"), L"TEMP=" + root,
+            L"TMP=" + root, L"NSSM_NEXT_BASE=base", L"NSSM_NEXT_PROBE=base", L"NSSM_NEXT_EXE=" + application};
+        configuration.environment.extra_present = true;
+        configuration.environment.extra = {L"NSSM_NEXT_PROBE=overlay", L"NSSM_NEXT_EMPTY="};
+        configuration.application = L"%NSSM_NEXT_EXE%";
+        const auto hook = fixture.substr(0, fixture.find_last_of(L"\\/") + 1) + L"managed-hook.ps1";
+        const auto &pairs = HookPairs();
+        for (unsigned i = 0; i < pairs.size(); ++i) configuration.hooks.commands[i] = L"\"" + application + L"\" -NoProfile -NonInteractive -File \"" + hook +
+            L"\" -RootDirectory \"" + root + L"\" -Token " + token + L" -Label " + pairs[i].first + L"-" + pairs[i].second;
+        configuration.hooks.redirect_output = true;
         created = manager->Create(configuration);
         registered = true;
         std::cout << "SERVICE=" << Utf8(created.name) << std::endl;
@@ -244,6 +267,8 @@ int wmain(int argc, wchar_t **argv) {
         auto current = manager->Read(created);
         Check(current.description == edited.description && current.revision == created.revision + 1,
               "edit persists and advances revision");
+        Check(SameAdvancedConfiguration(configuration, current), "advanced settings survive unrelated native edit and reopen");
+        Check(current.rotation.larger_than_bytes == configuration.rotation.larger_than_bytes, "nonzero rotation high word survives roundtrip");
         Reject([&] { manager->Update(created, configuration); },
                "stale revision cannot overwrite current configuration");
         std::atomic<unsigned> saved{0}, stale{0};
@@ -275,6 +300,14 @@ int wmain(int argc, wchar_t **argv) {
         Check(data.find(configuration.working_directory) != std::wstring::npos &&
                   data.find(L"value with spaces") != std::wstring::npos,
               "working directory and spaced arguments reach the target");
+        Check(data.find(L"ENV_BASE=base") != std::wstring::npos && data.find(L"ENV_PROBE=overlay") != std::wstring::npos && data.find(L"ENV_EMPTY=") != std::wstring::npos,
+            "replacement and overlay environment blocks both reach the child");
+        Check(data.find(L"PRIORITY=BelowNormal") != std::wstring::npos, "configured process priority is effective");
+        Check(data.find(L"AFFINITY=" + std::to_wstring(std::uint64_t{1} << cpu)) != std::wstring::npos, "configured processor affinity is effective");
+        Wait([&] { return GetFileAttributesW((root + L"\\hook-Start-Pre.txt").c_str()) != INVALID_FILE_ATTRIBUTES && GetFileAttributesW((root + L"\\hook-Start-Post.txt").c_str()) != INVALID_FILE_ATTRIBUTES; }, "startup hooks did not execute");
+        Check(true, "Start Pre/Post hooks execute");
+        Wait([&] { return GetFileAttributesW((root + L"\\stdout.log").c_str()) != INVALID_FILE_ATTRIBUTES && GetFileAttributesW((root + L"\\stderr.log").c_str()) != INVALID_FILE_ATTRIBUTES; }, "I/O redirection files were not created");
+        Check(true, "stdout and stderr redirection are effective");
         Marker(current, L"NotNssmNext");
         markerChanged = true;
         Reject([&] { manager->Stop(current); }, "removed ownership blocks stop");
@@ -297,6 +330,25 @@ int wmain(int argc, wchar_t **argv) {
         manager->Start(current);
         Check(manager->Read(current).state == ServiceState::Running,
               "stopped service can start again");
+        manager->Stop(current);
+        for (const auto kind : {AccountKind::LocalService, AccountKind::NetworkService, AccountKind::VirtualService}) {
+            current = manager->Read(created);
+            auto accountConfiguration = static_cast<ServiceConfiguration>(current);
+            accountConfiguration.login.kind = kind; accountConfiguration.login.username.clear();
+            manager->Update(current, accountConfiguration);
+            current = manager->Read(created);
+            const auto beforeStart = Started(root).size();
+            manager->Start(current);
+            Wait([&] { return Started(root).size() > beforeStart; }, "alternate service identity did not start target");
+            Check(manager->Read(current).state == ServiceState::Running, "builtin/virtual identity starts from protected native host");
+            manager->Stop(current);
+        }
+        current = manager->Read(created);
+        auto unknownAccount = static_cast<ServiceConfiguration>(current);
+        unknownAccount.login.kind = AccountKind::Custom; unknownAccount.login.username = L".\\NssmNextMissing_" + token.substr(0, 12);
+        CredentialRequest invalidCredentials; invalidCredentials.password.Assign(L"test-only-not-a-user-password", 28); invalidCredentials.password_supplied = true;
+        Reject([&] { manager->Update(current, unknownAccount, invalidCredentials); }, "unresolved custom account is rejected without losing configuration");
+        Check(manager->Read(created).revision == current.revision, "failed account preparation preserves revision");
         manager->Remove(current);
         registered = false;
         Wait([&] { return ServiceAbsent(created.name); },
