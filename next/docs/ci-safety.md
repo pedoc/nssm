@@ -2,13 +2,13 @@
 
 ## Current scope — 2026-11-09
 
-The user requested README screenshots, an automatic build/Release pipeline, and commit/push of the current feature. Changes stay on `feat/winui3-unified-prototype`; no main merge or Scoop publication is included. Branch pushes build artifacts only. A separate, deliberately pushed `next-v*` version tag triggers the Next prerelease pipeline; legacy `v*` tags and `.github/workflows/build.yml` remain untouched.
+The user requested README screenshots and automatic build/Release publication, then explicitly authorized creating a PR, merging it after checks pass, and publishing a stable Next tag from the merged main commit. No Scoop publication is included. Branch pushes build artifacts only. Deliberately pushed `next-vX.Y.Z` tags publish stable Next releases; suffixed tags publish prereleases. Legacy `v*` tags and `.github/workflows/build.yml` remain untouched.
 
 ## Build and packaging
 
 `next-release.yml` builds the production GUI and native host on GitHub-hosted Windows, runs source/safety contracts and routing/memory-only configuration checks, then invokes `package.ps1`. This pipeline never launches a GUI or creates a service. It packages the complete production runtime, resources, documentation and package licences, excluding test/debug/build outputs. x64 PE/subsystem checks and ZIP-entry SHA256 verification run before artifact upload.
 
-The build job has contents-read-only permissions and does not persist checkout credentials. Only the tag-gated release job has contents-write permission and a token-bearing step. That job creates a draft without overwriting existing assets, downloads and verifies its checksums, then publishes a prerelease with `latest=false` and verifies public downloads. Failed draft recovery remains an explicit action, not an automatic delete/recreate loop.
+The build job has contents-read-only permissions and does not persist checkout credentials. Only the tag-gated release job has contents-write permission and a token-bearing step. That job creates a draft without overwriting existing assets, downloads and verifies its checksums, then publishes the stable/prerelease type selected by the tag suffix and verifies both its metadata and public downloads. Stable tags must be reachable from `origin/main`; all Next releases retain `latest=false` to keep legacy NSSM downloads separate. Failed draft recovery remains an explicit action, not an automatic delete/recreate loop.
 
 ## Isolated real-service integration
 

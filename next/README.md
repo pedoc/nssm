@@ -2,10 +2,10 @@
 
 基于 **C++ / WinUI 3** 的 Windows 服务管理器。保留 NSSM 熟悉的配置分组，提供简洁的服务表格和原生服务宿主；双击即可打开，不需要命令行参数。
 
-[![Build and release](https://github.com/pedoc/nssm/actions/workflows/next-release.yml/badge.svg?branch=feat%2Fwinui3-unified-prototype)](https://github.com/pedoc/nssm/actions/workflows/next-release.yml)
-[预发行版本](https://github.com/pedoc/nssm/releases?q=next-v&expanded=true) · [构建产物](https://github.com/pedoc/nssm/actions/workflows/next-release.yml) · [功能矩阵](docs/gui-feature-parity.md)
+[![Build and release](https://github.com/pedoc/nssm/actions/workflows/next-release.yml/badge.svg?branch=main)](https://github.com/pedoc/nssm/actions/workflows/next-release.yml)
+[发布版本](https://github.com/pedoc/nssm/releases?q=next-v&expanded=true) · [构建产物](https://github.com/pedoc/nssm/actions/workflows/next-release.yml) · [功能矩阵](docs/gui-feature-parity.md)
 
-> 当前为预览版本，仅管理由 **NssmNext 创建**的服务，不自动导入或修改旧 NSSM／其他 Windows 服务。旧版 NSSM 的程序和发布流程保持独立。
+> NSSM Next 仅管理由 **NssmNext 创建**的服务，不自动导入或修改旧 NSSM／其他 Windows 服务。Next 与旧版 NSSM 独立发行，程序、版本标签和发布流程保持分离。
 
 ## 界面预览
 
@@ -49,14 +49,14 @@
 
 支持 x64 Windows 10（项目最低版本 19041）／Windows 11；当前不提供 x86 或 ARM64 构建。
 
-1. 在 [Releases](https://github.com/pedoc/nssm/releases?q=next-v&expanded=true) 中选择 **NSSM Next** 预发行版，而非旧版 `nssm-win32.zip`／`nssm-win64.zip`。
+1. 在 [Releases](https://github.com/pedoc/nssm/releases?q=next-v&expanded=true) 中选择 **NSSM Next** 版本，而非旧版 `nssm-win32.zip`／`nssm-win64.zip`。
 2. 下载 `NssmNext-<版本>-win-x64.zip` 和 `SHA256SUMS.txt`，核对校验值。
 3. 完整解压 ZIP，进入 `NssmNext` 文件夹，双击 **`NssmNext.exe`**。
 
 **不要只复制 EXE。** 自包含运行目录中的 DLL、PRI、XBF、语言资源及 `NssmNext.ServiceHost.exe` 必须一并保留，不需要单独安装 WinUI 运行时。当前发布未做代码签名，Windows 可能显示信誉提示；请核实来源和 SHA256，不要关闭系统安全防护。
 
 ```powershell
-Get-FileHash .\NssmNext-3.0.2-preview.1-win-x64.zip -Algorithm SHA256
+Get-FileHash .\NssmNext-3.0.2-win-x64.zip -Algorithm SHA256
 ```
 
 服务创建时会把原生宿主按内容哈希部署到受保护的 `Program Files\NssmNext\ServiceHosts`，避免 SYSTEM 从可被普通用户替换的下载／Scoop 目录启动宿主。目标应用、工作目录和日志仍需要正确设置运行账户的访问权限。
@@ -97,13 +97,14 @@ pwsh -NoProfile -File next/build/capture-docs.ps1 -OutputDirectory next/out/read
 
 ## CI / CD
 
-[`.github/workflows/next-release.yml`](https://github.com/pedoc/nssm/blob/feat/winui3-unified-prototype/.github/workflows/next-release.yml) 负责 Next 构建和发布，与旧版 NSSM 的 `build.yml` 独立。
+[`.github/workflows/next-release.yml`](https://github.com/pedoc/nssm/blob/main/.github/workflows/next-release.yml) 负责 Next 构建和发布，与旧版 NSSM 的 `build.yml` 独立。
 
 | 触发方式 | 结果 |
 | --- | --- |
 | 推送实验分支或 `main`，且命中 Next 路径 | 自动检查、编译、打包并上传 Actions Artifact，不创建 Release |
 | 相关 Pull Request | 同样检查和构建，不发布 |
-| 推送 `next-vX.Y.Z` 或 `next-vX.Y.Z-preview.N` 标签 | 全部检查成功后自动发布 **NSSM Next 预发行版** |
+| 推送 `next-vX.Y.Z` 正式标签 | 校验提交已合入 `main`，全部检查成功后发布 **NSSM Next 正式版** |
+| 推送 `next-vX.Y.Z-preview.N` 标签 | 全部检查成功后发布 **NSSM Next 预发行版** |
 | 手动运行工作流 | 分支运行只产生产物；标签运行可完成该标签的发布 |
 
 发布流程：
@@ -112,14 +113,19 @@ pwsh -NoProfile -File next/build/capture-docs.ps1 -OutputDirectory next/out/read
 2. 在 Windows runner 编译正常版 GUI 和原生宿主，不打包测试后端。
 3. 保留完整运行目录与第三方许可，排除 PDB、LIB、ILK 等调试／构建文件及测试程序。
 4. 验证 x64 PE／GUI 子系统，逐文件复核 ZIP 内的长度与 SHA256，并生成 ZIP 校验值。
-5. 创建 Release **草稿**，上传资产，下载复核后才公开为预发行版；再检查公开下载地址。不会替换旧版的 Latest，也不会覆盖已有 Release。
+5. 创建 Release **草稿**，上传资产，下载复核后按标签发布正式版或预发行版；再检查公开下载地址，并核对 Release 类型。不会替换旧版 NSSM 的 Latest，也不会覆盖已有 Release。
 
-示例：当 `version.h` 的版本是 `3.0.2` 时，在准备发布的提交上执行：
+正式发布顺序为 **创建 PR → 检查通过 → 合并到 `main` → 在合并提交上创建正式标签 → CI/CD 发布**。仓库未启用 GitHub Auto-merge 时，在检查通过后执行合并即可，无需更改全局仓库设置。
+
+示例：当 `version.h` 的版本是 `3.0.2` 时，在 PR 已合并且 `main` 检查通过后执行：
 
 ```bash
-git tag -a next-v3.0.2-preview.1 -m "NSSM Next 3.0.2 preview 1"
-git push origin next-v3.0.2-preview.1
+git fetch origin main
+git tag -a next-v3.0.2 origin/main -m "NSSM Next 3.0.2"
+git push origin next-v3.0.2
 ```
+
+需要预发行版时，使用 `next-v3.0.2-preview.1` 等带后缀标签；无后缀标签发布的 Release 会明确设置为非 prerelease。
 
 标签必须指向包含此工作流的提交，已发布标签不应改写。若发布中途失败，先检查 Actions 日志及草稿资产，不要直接删除、覆盖或反复重建版本。
 
